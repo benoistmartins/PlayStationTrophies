@@ -1,0 +1,450 @@
+//
+//  GameDetailView.swift
+//  PlayStationTrophies
+//
+//  Created by Benoist Martins on 16/04/2026.
+//
+
+import SwiftUI
+
+struct GameDetailView: View {
+    @EnvironmentObject private var store: DataStore
+    @EnvironmentObject private var syncViewModel: PSNSyncViewModel
+
+    let gameId: UUID
+
+    @State private var showCoverFullscreen = false
+    @State private var collapsedExtensions: Set<String> = []
+    @State private var revealedTrophies: Set<UUID> = []
+    @State private var showHidden = false
+    @State private var trophySort: TrophySort = .defaultOrder
+
+    init(game: Game) {
+        self.gameId = game.id
+    }
+
+    // MARK: - Grouped trophies
+
+    private func groupedTrophies(_ trophies: [Trophy]) -> [(header: String, trophies: [Trophy])] {
+        switch trophySort {
+        case .defaultOrder:
+            return []
+
+        case .notEarned:
+            let notEarned = trophies.filter { !$0.isUnlocked }
+            let earned = trophies.filter { $0.isUnlocked }
+            var groups: [(String, [Trophy])] = []
+            if !notEarned.isEmpty { groups.append(("Not earned - with progress: \(notEarned.count)", notEarned)) }
+            if !earned.isEmpty   { groups.append(("Earned: \(earned.count)", earned)) }
+            return groups
+
+        case .rarity:
+            let ultraRare = trophies.filter { ($0.earnedRate ?? 100) < 5 }
+            let veryRare  = trophies.filter { let r = $0.earnedRate ?? 100; return r >= 5 && r < 15 }
+            let rare      = trophies.filter { let r = $0.earnedRate ?? 100; return r >= 15 && r < 50 }
+            let common    = trophies.filter { ($0.earnedRate ?? 100) >= 50 }
+            var groups: [(String, [Trophy])] = []
+            if !ultraRare.isEmpty { groups.append(("Ultra rare: \(ultraRare.count)", ultraRare)) }
+            if !veryRare.isEmpty  { groups.append(("Very rare: \(veryRare.count)", veryRare)) }
+            if !rare.isEmpty      { groups.append(("Rare: \(rare.count)", rare)) }
+            if !common.isEmpty    { groups.append(("Common: \(common.count)", common)) }
+            return groups
+
+        case .earnedDate:
+            let now = Date()
+            let weekAgo  = Calendar.current.date(byAdding: .day, value: -7,  to: now)!
+            let monthAgo = Calendar.current.date(byAdding: .day, value: -30, to: now)!
+
+            let thisWeek  = trophies
+                .filter { guard let d = $0.unlockedDate else { return false }; return d >= weekAgo }
+                .sorted { $0.unlockedDate! > $1.unlockedDate! }
+            let lastMonth = trophies
+                .filter { guard let d = $0.unlockedDate else { return false }; return d >= monthAgo && d < weekAgo }
+                .sorted { $0.unlockedDate! > $1.unlockedDate! }
+            let older     = trophies
+                .filter { guard let d = $0.unlockedDate else { return false }; return d < monthAgo }
+                .sorted { $0.unlockedDate! > $1.unlockedDate! }
+            let notEarned = trophies.filter { $0.unlockedDate == nil }
+
+            var groups: [(String, [Trophy])] = []
+            if !thisWeek.isEmpty  { groups.append(("Earned this week: \(thisWeek.count)", thisWeek)) }
+            if !lastMonth.isEmpty { groups.append(("Earned in the last 30 days: \(lastMonth.count)", lastMonth)) }
+            if !older.isEmpty     { groups.append(("Earned more than 30 days ago: \(older.count)", older)) }
+            if !notEarned.isEmpty { groups.append(("Not earned: \(notEarned.count)", notEarned)) }
+            return groups
+
+        case .rank:
+            let platinum = trophies.filter { $0.type == .platinum }
+            let gold     = trophies.filter { $0.type == .gold }
+            let silver   = trophies.filter { $0.type == .silver }
+            let bronze   = trophies.filter { $0.type == .bronze }
+            var groups: [(String, [Trophy])] = []
+            if !platinum.isEmpty { groups.append(("Platinum: \(platinum.count)", platinum)) }
+            if !gold.isEmpty     { groups.append(("Gold: \(gold.count)", gold)) }
+            if !silver.isEmpty   { groups.append(("Silver: \(silver.count)", silver)) }
+            if !bronze.isEmpty   { groups.append(("Bronze: \(bronze.count)", bronze)) }
+            return groups
+        }
+    }
+
+    var body: some View {
+        Group {
+            if let game = store.games.first(where: { $0.id == gameId }) {
+                List {
+                    statsSection(game: game)
+                    trophiesSection(game: game)
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text(game.title)
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            // Tri
+                            Section("Sort") {
+                                ForEach(TrophySort.allCases, id: \.self) { sort in
+                                    Button {
+                                        withAnimation { trophySort = sort }
+                                    } label: {
+                                        HStack {
+                                            Text(sort.rawValue)
+                                            if trophySort == sort {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Séparateur + actions
+                            Section {
+                                // Reveal all
+                                if game.trophies.contains(where: { $0.isHidden && !$0.isUnlocked }) {
+                                    Button {
+                                        withAnimation {
+                                            showHidden.toggle()
+                                            if !showHidden { revealedTrophies.removeAll() }
+                                        }
+                                    } label: {
+                                        Label(
+                                            showHidden ? "Hide hidden trophies" : "Reveal all hidden",
+                                            systemImage: showHidden ? "eye.slash" : "eye"
+                                        )
+                                    }
+                                }
+
+                                // Favori
+                                Button {
+                                    var updated = game
+                                    updated.isFavorite.toggle()
+                                    store.updateGame(updated)
+                                } label: {
+                                    Label(
+                                        game.isFavorite ? "Remove from favorites" : "Add to favorites",
+                                        systemImage: game.isFavorite ? "star.slash" : "star"
+                                    )
+                                }
+
+                                // Resync
+                                Button {
+                                    syncViewModel.syncSingleGame(game)
+                                } label: {
+                                    Label("Sync this game", systemImage: "arrow.clockwise")
+                                }
+                                .disabled(syncViewModel.isSyncingGame)
+                            }
+                        } label: {
+                            if syncViewModel.isSyncingGame {
+                                ProgressView().scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "ellipsis.circle")
+                            }
+                        }
+                    }
+                }
+            } else {
+                ContentUnavailableView("Game not found", systemImage: "gamecontroller")
+            }
+        }
+        .sheet(isPresented: $showCoverFullscreen) {
+            if let game = store.games.first(where: { $0.id == gameId }) {
+                ZStack(alignment: .topTrailing) {
+                    Color.black.ignoresSafeArea()
+                    if let url = game.coverURL {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable().scaledToFit()
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            default:
+                                gamePlaceholder(size: 300)
+                            }
+                        }
+                    } else {
+                        gamePlaceholder(size: 300)
+                    }
+                    Button { showCoverFullscreen = false } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white)
+                            .padding()
+                    }
+                }
+            }
+        }
+        .alert("Error", isPresented: Binding(
+            get: { syncViewModel.error != nil },
+            set: { if !$0 { syncViewModel.clearError() } }
+        )) {
+            Button("OK") { syncViewModel.clearError() }
+        } message: {
+            Text(syncViewModel.error ?? "")
+        }
+    }
+
+    // MARK: - Stats
+
+    private func statsSection(game: Game) -> some View {
+        Section {
+            VStack(spacing: 12) {
+                CoverImageView(url: game.coverURL, size: CGSize(width: 160, height: 160))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .onTapGesture { showCoverFullscreen = true }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        HStack(spacing: 6) {
+                            ForEach(game.allPlatforms, id: \.self) { platform in
+                                PlatformBadge(platform: platform)
+                            }
+                        }
+                        Spacer()
+                        HStack(spacing: 12) {
+                            ForEach(TrophyType.displayOrder, id: \.self) { type in
+                                let count = game.count(for: type)
+                                if type == .platinum && count == 0 {
+                                    EmptyView()
+                                } else {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "trophy.fill")
+                                            .foregroundStyle(type.color)
+                                            .font(.caption)
+                                        Text("\(count)")
+                                            .font(.caption.bold())
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 4) {
+                        Spacer()
+                        Text("\(game.unlockedTrophies) unlocked")
+                            .font(.caption.bold())
+                        Text("•").foregroundStyle(.secondary)
+                        Text("\(game.totalTrophies) total")
+                            .font(.caption.bold())
+                        Text("•").foregroundStyle(.secondary)
+                        Text("\(game.totalPoints) pts")
+                            .font(.caption.bold())
+                        Text("•").foregroundStyle(.secondary)
+                        Image(systemName: "trophy.fill")
+                            .font(.caption)
+                            .foregroundStyle(.black)
+                        Text("\(game.hiddenTrophiesCount)")
+                            .font(.caption.bold())
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                ProgressView(value: game.completionPercentage, total: 100)
+                    .tint(game.progressColor)
+                    .scaleEffect(x: 1, y: 2)
+
+                HStack {
+                    Spacer()
+                    Text(String(format: "%.0f%% completion", game.completionPercentage))
+                        .font(.caption.bold())
+                        .foregroundStyle(game.progressColor)
+                    Spacer()
+                }
+
+                if game.extensions.count > 1 {
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("DLCs")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 80, alignment: .trailing)
+                        HStack(spacing: 6) {
+                            Image(systemName: "puzzlepiece.extension")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("\(game.extensions.count - 1) DLC\(game.extensions.count - 1 > 1 ? "s" : "")")
+                                .font(.caption.bold())
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    // MARK: - Trophies
+
+    @ViewBuilder
+    private func trophiesSection(game: Game) -> some View {
+        if game.trophies.isEmpty {
+            Section("Trophies") {
+                ContentUnavailableView(
+                    "No trophies yet",
+                    systemImage: "trophy",
+                    description: Text("Sync your PSN account to load trophies")
+                )
+            }
+        } else if trophySort == .defaultOrder {
+            if let rarest = game.trophies
+                .filter({ $0.isUnlocked })
+                .min(by: { ($0.earnedRate ?? 100) < ($1.earnedRate ?? 100) }) {
+                Section("Rarest trophy earned") {
+                    TrophyRowView(
+                        trophy: rarest,
+                        isRevealed: showHidden || revealedTrophies.contains(rarest.id)
+                    ) {
+                        withAnimation { _ = revealedTrophies.insert(rarest.id) }
+                    }
+                }
+            }
+
+            ForEach(game.extensions) { ext in
+                let trophies = game.trophies(for: ext.name)
+                if !trophies.isEmpty {
+                    extensionGroup(ext: ext, trophies: trophies, game: game)
+                }
+            }
+        } else {
+            let allTrophies = game.extensions.flatMap { game.trophies(for: $0.name) }
+            let groups = groupedTrophies(allTrophies)
+            ForEach(groups, id: \.header) { group in
+                Section(group.header) {
+                    ForEach(group.trophies) { trophy in
+                        TrophyRowView(
+                            trophy: trophy,
+                            isRevealed: showHidden || revealedTrophies.contains(trophy.id)
+                        ) {
+                            withAnimation { _ = revealedTrophies.insert(trophy.id) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Extension group
+
+    @ViewBuilder
+    private func extensionGroup(ext: GameExtension, trophies: [Trophy], game: Game) -> some View {
+        let unlockedCount = trophies.filter(\.isUnlocked).count
+        let totalCount = trophies.count
+
+        Section {
+            if !collapsedExtensions.contains(ext.name) {
+                ForEach(trophies) { trophy in
+                    TrophyRowView(
+                        trophy: trophy,
+                        isRevealed: showHidden || revealedTrophies.contains(trophy.id)
+                    ) {
+                        withAnimation { _ = revealedTrophies.insert(trophy.id) }
+                    }
+                }
+            }
+        } header: {
+            HStack(alignment: .top, spacing: 10) {
+                if let iconUrlString = ext.iconUrl,
+                   let iconUrl = URL(string: iconUrlString) {
+                    CoverImageView(url: iconUrl, size: CGSize(width: 40, height: 40))
+                } else if game.coverURL != nil {
+                    CoverImageView(url: game.coverURL, size: CGSize(width: 40, height: 40))
+                } else {
+                    groupImageFallback
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(ext.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 6) {
+                        Text("\(unlockedCount) of \(totalCount) trophies")
+                            .font(.caption.bold())
+                            .foregroundStyle(game.completionColor(for: ext.name))
+                        Text("•").font(.caption).foregroundStyle(.secondary)
+                        ForEach(TrophyType.displayOrder, id: \.self) { type in
+                            let count = trophies.filter { $0.type == type }.count
+                            if count > 0 {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "trophy.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(type.color)
+                                    Text("\(count)")
+                                        .font(.caption2.bold())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: collapsedExtensions.contains(ext.name) ? "chevron.down" : "chevron.up")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation {
+                    if collapsedExtensions.contains(ext.name) {
+                        collapsedExtensions.remove(ext.name)
+                    } else {
+                        collapsedExtensions.insert(ext.name)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private var groupImageFallback: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(Color(.systemGray5))
+            .overlay {
+                Image(systemName: "puzzlepiece.extension")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            .frame(width: 40, height: 40)
+    }
+
+    private func gamePlaceholder(size: CGFloat) -> some View {
+        ZStack {
+            Color(.systemGray5)
+            Image(systemName: "gamecontroller")
+                .font(.system(size: size / 3))
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
