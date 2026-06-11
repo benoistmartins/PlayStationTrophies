@@ -20,7 +20,6 @@ struct PSNTrophy: Codable {
     let trophyRare: Int?
     let trophyEarnedRate: String?
     let trophyProgressTargetValue: String?
-    // Champs réels retournés par l'API pour la progression
     let progress: String?
     let progressRate: Int?
     let progressedDateTime: String?

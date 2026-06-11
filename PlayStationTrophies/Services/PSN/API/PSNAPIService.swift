@@ -93,6 +93,8 @@ final class PSNAPIService {
         }
         if httpResponse.statusCode == 429 { throw PSNAPIError.rateLimited }
         guard (200...299).contains(httpResponse.statusCode) else {
+            print("❌ PSNAPIService | HTTP \(httpResponse.statusCode) — \(url.absoluteString)")
+            print("❌ PSNAPIService | Body: \(String(data: data, encoding: .utf8) ?? "nil")")
             throw PSNAPIError.httpError(httpResponse.statusCode)
         }
         return data
@@ -102,6 +104,7 @@ final class PSNAPIService {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
+            print("❌ PSNAPIService | Decoding error for \(T.self): \(error)")
             throw PSNAPIError.decodingFailed
         }
     }

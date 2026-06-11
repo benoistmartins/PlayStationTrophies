@@ -170,7 +170,7 @@ final class DataStore: ObservableObject {
             let data = try JSONEncoder().encode(games)
             try data.write(to: saveURL, options: .atomic)
         } catch {
-            print("Save error: \(error)")
+            print("❌ DataStore | Save error: \(error)")
         }
     }
 
@@ -181,7 +181,7 @@ final class DataStore: ObservableObject {
             let decoded = try JSONDecoder().decode([Game].self, from: data)
             await MainActor.run { self.games = decoded }
         } catch {
-            print("Load error: \(error)")
+            print("❌ DataStore | Load error: \(error)")
         }
     }
 }

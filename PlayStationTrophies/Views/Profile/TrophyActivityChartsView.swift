@@ -116,7 +116,6 @@ struct TrophyActivityChartsView: View {
                     .padding(.vertical, 8)
             } else {
                 HStack(alignment: .center, spacing: 24) {
-                    // Pie chart
                     Chart(data, id: \.label) { item in
                         SectorMark(
                             angle: .value("Count", item.count),
@@ -128,7 +127,6 @@ struct TrophyActivityChartsView: View {
                     }
                     .frame(width: 130, height: 130)
 
-                    // Légende triée du plus grand au plus petit
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(data, id: \.label) { item in
                             HStack(spacing: 6) {

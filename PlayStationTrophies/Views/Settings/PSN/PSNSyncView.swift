@@ -81,7 +81,6 @@ struct PSNSyncView: View {
 
     private var syncSection: some View {
         Section {
-            // Sync optimisée
             Button {
                 syncViewModel.syncGames(optimized: true)
             } label: {
@@ -96,7 +95,6 @@ struct PSNSyncView: View {
             }
             .disabled(!syncViewModel.canSync || syncViewModel.isSyncing)
 
-            // Sync complète
             Button {
                 syncViewModel.syncGames(optimized: false)
             } label: {

@@ -12,124 +12,54 @@ struct PlayerLevel {
     let minPoints: Int
     let nextLevelPoints: Int?
 
-    static let levels: [(level: Int, min: Int, max: Int?)] = [
-        (1, 0, 209),
-        (2, 210, 599),
-        (3, 600, 1199),
-        (4, 1200, 2399),
-        (5, 2400, 3999),
-        (6, 4000, 5999),
-        (7, 6000, 7999),
-        (8, 8000, 9999),
-        (9, 10000, 11999),
-        (10, 12000, 13999),
-        (11, 14000, 15999),
-        (12, 16000, 23999),
-        (13, 24000, 31999),
-        (14, 32000, 39999),
-        (15, 40000, 47999),
-        (16, 48000, 55999),
-        (17, 56000, 63999),
-        (18, 64000, 71999),
-        (19, 72000, 79999),
-        (20, 80000, 87999),
-        (21, 88000, 95999),
-        (22, 96000, 103999),
-        (23, 104000, 111999),
-        (24, 112000, 119999),
-        (25, 120000, 127999),
-        (26, 128000, 137999),
-        (27, 138000, 147999),
-        (28, 148000, 157999),
-        (29, 158000, 167999),
-        (30, 168000, 177999),
-        (31, 178000, 187999),
-        (32, 188000, 197999),
-        (33, 198000, 207999),
-        (34, 208000, 217999),
-        (35, 218000, 227999),
-        (36, 228000, 237999),
-        (37, 238000, 247999),
-        (38, 248000, 257999),
-        (39, 258000, 267999),
-        (40, 268000, 277999),
-        (41, 278000, 287999),
-        (42, 288000, 297999),
-        (43, 298000, 307999),
-        (44, 308000, 317999),
-        (45, 318000, 327999),
-        (46, 328000, 337999),
-        (47, 338000, 347999),
-        (48, 348000, 357999),
-        (49, 358000, 367999),
-        (50, 368000, 377999),
-        (51, 378000, 387999),
-        (52, 388000, 397999),
-        (53, 398000, 407999),
-        (54, 408000, 417999),
-        (55, 418000, 427999),
-        (56, 428000, 437999),
-        (57, 438000, 447999),
-        (58, 448000, 457999),
-        (59, 458000, 467999),
-        (60, 468000, 477999),
-        (61, 478000, 487999),
-        (62, 488000, 497999),
-        (63, 498000, 507999),
-        (64, 508000, 517999),
-        (65, 518000, 527999),
-        (66, 528000, 537999),
-        (67, 538000, 547999),
-        (68, 548000, 557999),
-        (69, 558000, 567999),
-        (70, 568000, 577999),
-        (71, 578000, 587999),
-        (72, 588000, 597999),
-        (73, 598000, 607999),
-        (74, 608000, 617999),
-        (75, 618000, 627999),
-        (76, 628000, 637999),
-        (77, 638000, 647999),
-        (78, 648000, 657999),
-        (79, 658000, 667999),
-        (80, 668000, 677999),
-        (81, 678000, 687999),
-        (82, 688000, 697999),
-        (83, 698000, 707999),
-        (84, 708000, 717999),
-        (85, 718000, 727999),
-        (86, 728000, 737999),
-        (87, 738000, 747999),
-        (88, 748000, 757999),
-        (89, 758000, 767999),
-        (90, 768000, 777999),
-        (91, 778000, 787999),
-        (92, 788000, 797999),
-        (93, 798000, 807999),
-        (94, 808000, 817999),
-        (95, 818000, 827999),
-        (96, 828000, 837999),
-        (97, 838000, 847999),
-        (98, 848000, 857999),
-        (99, 858000, 867999),
-        (100, 868000, nil)
-    ]
+    // MARK: - Nouveau système PSN (octobre 2020)
 
-    static func current(for totalPoints: Int) -> PlayerLevel {
-        let entry = levels.last(where: { totalPoints >= $0.min }) ?? levels[0]
-        let next = levels.first(where: { $0.min > entry.min })
-        return PlayerLevel(
-            level: entry.level,
-            minPoints: entry.min,
-            nextLevelPoints: next?.min
-        )
+    static func pointsRequired(forLevel level: Int) -> Int {
+        switch level {
+        case 1...99:   return 60
+        case 100...199: return 90
+        case 200...299: return 450
+        case 300...399: return 900
+        case 400...499: return 1350
+        case 500...599: return 1800
+        case 600...699: return 2250
+        case 700...799: return 2700
+        case 800...899: return 3150
+        case 900...999: return 3600
+        default: return 3600
+        }
     }
 
-    var progressToNextLevel: Double {
-        guard let next = nextLevelPoints else { return 1.0 }
-        let range = Double(next - minPoints)
-        guard range > 0 else { return 1.0 }
-        return Double(0) / range
+    static func minPoints(forLevel level: Int) -> Int {
+        guard level > 1 else { return 0 }
+        var total = 0
+        for l in 1..<level {
+            total += pointsRequired(forLevel: l)
+        }
+        return total
+    }
+
+    static func current(for totalPoints: Int) -> PlayerLevel {
+        var level = 1
+        var accumulated = 0
+
+        while level < 999 {
+            let required = pointsRequired(forLevel: level)
+            if accumulated + required > totalPoints {
+                break
+            }
+            accumulated += required
+            level += 1
+        }
+
+        let currentMin = accumulated
+        let nextMin = level < 999 ? accumulated + pointsRequired(forLevel: level) : nil
+
+        return PlayerLevel(
+            level: level,
+            minPoints: currentMin,
+            nextLevelPoints: nextMin
+        )
     }
 
     func progress(currentPoints: Int) -> Double {
@@ -139,5 +69,5 @@ struct PlayerLevel {
         return min(Double(currentPoints - minPoints) / range, 1.0)
     }
 
-    var isMaxLevel: Bool { level == 100 }
+    var isMaxLevel: Bool { level == 999 }
 }

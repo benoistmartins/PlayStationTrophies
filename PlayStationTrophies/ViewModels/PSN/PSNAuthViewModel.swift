@@ -22,7 +22,6 @@ final class PSNAuthViewModel: ObservableObject {
         self.authService = authService
         self.isAuthenticated = authService.isAuthenticated
 
-        // Observe les changements de isAuthenticated dans authService
         authService.$isAuthenticated
             .receive(on: DispatchQueue.main)
             .sink { [weak self] authenticated in

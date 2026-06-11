@@ -13,7 +13,6 @@ struct RecentTrophyCell: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Image du trophée
             Group {
                 if let iconUrlString = trophy.iconUrl,
                    let iconUrl = URL(string: iconUrlString) {
@@ -35,7 +34,6 @@ struct RecentTrophyCell: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 4) {
-                // Ligne 1 — type + nom du trophée
                 HStack(spacing: 4) {
                     Image(systemName: "trophy.fill")
                         .font(.caption2)
@@ -45,13 +43,11 @@ struct RecentTrophyCell: View {
                         .lineLimit(1)
                 }
 
-                // Ligne 2 — description
                 Text(trophy.trophyDescription ?? " ")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                // Ligne 3 — date + jeu
                 HStack(spacing: 4) {
                     if let date = trophy.unlockedDate {
                         Text(relativeDate(date))

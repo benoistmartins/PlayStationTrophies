@@ -104,7 +104,6 @@ struct GameDetailView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
-                            // Tri
                             Section("Sort") {
                                 ForEach(TrophySort.allCases, id: \.self) { sort in
                                     Button {
@@ -120,9 +119,7 @@ struct GameDetailView: View {
                                 }
                             }
 
-                            // Séparateur + actions
                             Section {
-                                // Reveal all
                                 if game.trophies.contains(where: { $0.isHidden && !$0.isUnlocked }) {
                                     Button {
                                         withAnimation {
@@ -137,7 +134,6 @@ struct GameDetailView: View {
                                     }
                                 }
 
-                                // Favori
                                 Button {
                                     var updated = game
                                     updated.isFavorite.toggle()
@@ -149,7 +145,6 @@ struct GameDetailView: View {
                                     )
                                 }
 
-                                // Resync
                                 Button {
                                     syncViewModel.syncSingleGame(game)
                                 } label: {

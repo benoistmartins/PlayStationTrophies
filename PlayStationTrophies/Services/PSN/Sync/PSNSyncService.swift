@@ -98,14 +98,12 @@ final class PSNSyncService {
     // MARK: - Should sync
 
     private func shouldSync(_ title: PSNTitle, game: Game) -> Bool {
-        // Vérif 1 — date de mise à jour PSN plus récente
         if let psnDateString = title.lastUpdatedDateTime,
            let psnDate = ISO8601DateFormatter().date(from: psnDateString),
            psnDate > game.lastUpdate {
             return true
         }
 
-        // Vérif 2 — nouveau DLC détecté via nombre total de trophées
         let psnTotal = title.definedTrophies.bronze
                      + title.definedTrophies.silver
                      + title.definedTrophies.gold
@@ -114,7 +112,6 @@ final class PSNSyncService {
             return true
         }
 
-        // Vérif 3 — progression PSN différente de ce qu'on a stocké localement
         if let psnProgress = title.progress {
             if let localProgress = game.psnProgress {
                 if psnProgress != localProgress {
@@ -250,15 +247,12 @@ final class PSNSyncService {
             serviceName: serviceName
         )
 
-        // Log progression
         let defsWithProgress = definitions.filter { $0.trophyProgressTargetValue != nil }
         if !defsWithProgress.isEmpty {
-            print("🎮PSN | 📊 \(title.trophyTitleName) — \(defsWithProgress.count) trophy(ies) with progress:")
             for def in defsWithProgress {
                 let earnedTrophy = earned.first(where: { $0.trophyId == def.trophyId })
                 let current = earnedTrophy?.progress ?? "0"
                 let rate = earnedTrophy?.progressRate ?? 0
-                print("  → Trophy \(def.trophyId) '\(def.trophyName ?? "?")' \(current)/\(def.trophyProgressTargetValue ?? "?") (\(rate)%)")
             }
         }
 
@@ -290,7 +284,6 @@ final class PSNSyncService {
                 trophy.rarity = earnedTrophy.trophyRare
 
                 if !(earnedTrophy.earned ?? false) {
-                    // Trophée non obtenu — met à jour la progression
                     if let progress = earnedTrophy.progress {
                         trophy.progressValue = Int(progress)
                     }
@@ -298,7 +291,6 @@ final class PSNSyncService {
                         trophy.progressRate = progressRate
                     }
                 } else if trophy.progressTarget != nil {
-                    // Trophée obtenu — progression à 100%
                     trophy.progressValue = trophy.progressTarget
                     trophy.progressRate = 100
                 }
