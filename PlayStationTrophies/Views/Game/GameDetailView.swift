@@ -31,11 +31,11 @@ struct GameDetailView: View {
             return []
 
         case .notEarned:
-            let notEarned = trophies.filter { !$0.isUnlocked }
             let earned = trophies.filter { $0.isUnlocked }
+            let notEarned = trophies.filter { !$0.isUnlocked }
             var groups: [(String, [Trophy])] = []
-            if !notEarned.isEmpty { groups.append(("Not earned - with progress: \(notEarned.count)", notEarned)) }
             if !earned.isEmpty   { groups.append(("Earned: \(earned.count)", earned)) }
+            if !notEarned.isEmpty { groups.append(("Not earned - with progress: \(notEarned.count)", notEarned)) }
             return groups
 
         case .rarity:
@@ -287,6 +287,64 @@ struct GameDetailView: View {
                         Spacer()
                     }
                     .padding(.vertical, 8)
+                }
+
+                // MARK: Completion timing
+                if let first = game.firstTrophyDate {
+                    if game.hasPlatinum, let platinum = game.platinumDate {
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("Platinum")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 80, alignment: .trailing)
+                            HStack(spacing: 6) {
+                                Image(systemName: "trophy.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.cyan)
+                                Text(game.completionDuration(from: first, to: platinum))
+                                    .font(.caption.bold())
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+
+                        if game.extensions.count > 1,
+                           game.completionPercentage == 100,
+                           let last = game.lastTrophyDate,
+                           last > platinum {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("100%")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.seal.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.green)
+                                    Text(game.completionDuration(from: first, to: last))
+                                        .font(.caption.bold())
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    } else if game.completionPercentage == 100, let last = game.lastTrophyDate {
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("100%")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 80, alignment: .trailing)
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                                Text(game.completionDuration(from: first, to: last))
+                                    .font(.caption.bold())
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
             .padding(.vertical, 8)

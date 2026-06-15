@@ -5,6 +5,13 @@
 //  Created by Benoist Martins on 11/05/2026.
 //
 
+//
+//  PSNSyncService.swift
+//  PlayStationTrophies
+//
+//  Created by Benoist Martins on 11/05/2026.
+//
+
 import Foundation
 
 final class PSNSyncService {
@@ -246,15 +253,6 @@ final class PSNSyncService {
             npCommunicationId: title.npCommunicationId,
             serviceName: serviceName
         )
-
-        let defsWithProgress = definitions.filter { $0.trophyProgressTargetValue != nil }
-        if !defsWithProgress.isEmpty {
-            for def in defsWithProgress {
-                let earnedTrophy = earned.first(where: { $0.trophyId == def.trophyId })
-                let current = earnedTrophy?.progress ?? "0"
-                let rate = earnedTrophy?.progressRate ?? 0
-            }
-        }
 
         let earnedMap = Dictionary(uniqueKeysWithValues: earned.map { ($0.trophyId, $0) })
 
