@@ -18,12 +18,32 @@ struct GameDetailView: View {
     @State private var revealedTrophies: Set<UUID> = []
     @State private var showHidden = false
     @State private var trophySort: TrophySort = .defaultOrder
+    @State private var trophyFilter: TrophyFilter = .all
 
     init(game: Game) {
         self.gameId = game.id
     }
 
-    // MARK: - Grouped trophies
+    private var isFiltered: Bool { trophyFilter != .all }
+    private var isSorted: Bool { trophySort != .defaultOrder }
+    private var isModified: Bool { isFiltered || isSorted }
+
+    // MARK: - Filter
+
+    private func applyFilter(_ trophies: [Trophy]) -> [Trophy] {
+        switch trophyFilter {
+        case .all:        return trophies
+        case .notEarned:  return trophies.filter { !$0.isUnlocked }
+        case .inProgress: return trophies.filter { !$0.isUnlocked && ($0.progressRate ?? 0) > 0 }
+        case .earned:     return trophies.filter { $0.isUnlocked }
+        case .platinum:   return trophies.filter { $0.type == .platinum }
+        case .gold:       return trophies.filter { $0.type == .gold }
+        case .silver:     return trophies.filter { $0.type == .silver }
+        case .bronze:     return trophies.filter { $0.type == .bronze }
+        }
+    }
+
+    // MARK: - Sort
 
     private func groupedTrophies(_ trophies: [Trophy]) -> [(header: String, trophies: [Trophy])] {
         switch trophySort {
@@ -34,7 +54,7 @@ struct GameDetailView: View {
             let earned = trophies.filter { $0.isUnlocked }
             let notEarned = trophies.filter { !$0.isUnlocked }
             var groups: [(String, [Trophy])] = []
-            if !earned.isEmpty   { groups.append(("Earned: \(earned.count)", earned)) }
+            if !earned.isEmpty    { groups.append(("Earned: \(earned.count)", earned)) }
             if !notEarned.isEmpty { groups.append(("Not earned - with progress: \(notEarned.count)", notEarned)) }
             return groups
 
@@ -104,6 +124,21 @@ struct GameDetailView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
+                            Section("Filter") {
+                                ForEach(TrophyFilter.allCases, id: \.self) { filter in
+                                    Button {
+                                        withAnimation { trophyFilter = filter }
+                                    } label: {
+                                        HStack {
+                                            Text(filter.rawValue)
+                                            if trophyFilter == filter {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             Section("Sort") {
                                 ForEach(TrophySort.allCases, id: \.self) { sort in
                                     Button {
@@ -151,12 +186,24 @@ struct GameDetailView: View {
                                     Label("Sync this game", systemImage: "arrow.clockwise")
                                 }
                                 .disabled(syncViewModel.isSyncingGame)
+
+                                if isModified {
+                                    Button {
+                                        withAnimation {
+                                            trophyFilter = .all
+                                            trophySort = .defaultOrder
+                                        }
+                                    } label: {
+                                        Label("Reset filters & sort", systemImage: "xmark.circle")
+                                    }
+                                }
                             }
                         } label: {
                             if syncViewModel.isSyncingGame {
                                 ProgressView().scaleEffect(0.8)
                             } else {
-                                Image(systemName: "ellipsis.circle")
+                                Image(systemName: isModified ? "ellipsis.circle.fill" : "ellipsis.circle")
+                                    .foregroundStyle(isModified ? Color.blue : Color.primary)
                             }
                         }
                     }
@@ -289,7 +336,6 @@ struct GameDetailView: View {
                     .padding(.vertical, 8)
                 }
 
-                // MARK: Completion timing
                 if let first = game.firstTrophyDate {
                     if game.hasPlatinum, let platinum = game.platinumDate {
                         HStack(alignment: .top, spacing: 12) {
@@ -364,36 +410,61 @@ struct GameDetailView: View {
                 )
             }
         } else if trophySort == .defaultOrder {
-            if let rarest = game.trophies
-                .filter({ $0.isUnlocked })
-                .min(by: { ($0.earnedRate ?? 100) < ($1.earnedRate ?? 100) }) {
-                Section("Rarest trophy earned") {
-                    TrophyRowView(
-                        trophy: rarest,
-                        isRevealed: showHidden || revealedTrophies.contains(rarest.id)
-                    ) {
-                        withAnimation { _ = revealedTrophies.insert(rarest.id) }
+            let hasContent = game.extensions.contains { ext in
+                !applyFilter(game.trophies(for: ext.name)).isEmpty
+            }
+
+            if !hasContent {
+                Section("Trophies") {
+                    ContentUnavailableView(
+                        "No trophies match this filter",
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        description: Text("Try changing or resetting the filter")
+                    )
+                }
+            } else {
+                if trophyFilter == .all, let rarest = game.trophies
+                    .filter({ $0.isUnlocked })
+                    .min(by: { ($0.earnedRate ?? 100) < ($1.earnedRate ?? 100) }) {
+                    Section("Rarest trophy earned") {
+                        TrophyRowView(
+                            trophy: rarest,
+                            isRevealed: showHidden || revealedTrophies.contains(rarest.id)
+                        ) {
+                            withAnimation { _ = revealedTrophies.insert(rarest.id) }
+                        }
+                    }
+                }
+
+                ForEach(game.extensions) { ext in
+                    let trophies = applyFilter(game.trophies(for: ext.name))
+                    if !trophies.isEmpty {
+                        extensionGroup(ext: ext, trophies: trophies, game: game)
                     }
                 }
             }
-
-            ForEach(game.extensions) { ext in
-                let trophies = game.trophies(for: ext.name)
-                if !trophies.isEmpty {
-                    extensionGroup(ext: ext, trophies: trophies, game: game)
-                }
-            }
         } else {
-            let allTrophies = game.extensions.flatMap { game.trophies(for: $0.name) }
+            let allTrophies = applyFilter(game.extensions.flatMap { game.trophies(for: $0.name) })
             let groups = groupedTrophies(allTrophies)
-            ForEach(groups, id: \.header) { group in
-                Section(group.header) {
-                    ForEach(group.trophies) { trophy in
-                        TrophyRowView(
-                            trophy: trophy,
-                            isRevealed: showHidden || revealedTrophies.contains(trophy.id)
-                        ) {
-                            withAnimation { _ = revealedTrophies.insert(trophy.id) }
+
+            if groups.isEmpty {
+                Section("Trophies") {
+                    ContentUnavailableView(
+                        "No trophies match this filter",
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        description: Text("Try changing or resetting the filter")
+                    )
+                }
+            } else {
+                ForEach(groups, id: \.header) { group in
+                    Section(group.header) {
+                        ForEach(group.trophies) { trophy in
+                            TrophyRowView(
+                                trophy: trophy,
+                                isRevealed: showHidden || revealedTrophies.contains(trophy.id)
+                            ) {
+                                withAnimation { _ = revealedTrophies.insert(trophy.id) }
+                            }
                         }
                     }
                 }
