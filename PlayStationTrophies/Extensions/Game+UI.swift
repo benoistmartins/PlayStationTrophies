@@ -42,14 +42,18 @@ extension Game {
     }
 
     func completionDuration(from start: Date, to end: Date) -> String {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: start, to: end)
+        let totalSeconds = Int(end.timeIntervalSince(start))
 
-        let years = components.year ?? 0
+        let minutes = totalSeconds / 60
+        let hours   = totalSeconds / 3600
+        let days    = totalSeconds / 86400
+        let weeks   = days / 7
+        let remainingDaysAfterWeeks = days % 7
+        let remainingHoursAfterWeeks = (totalSeconds - weeks * 7 * 24 * 3600) / 3600
+
+        let components = Calendar.current.dateComponents([.year, .month], from: start, to: end)
+        let years  = components.year ?? 0
         let months = components.month ?? 0
-        let days = components.day ?? 0
-        let hours = components.hour ?? 0
-        let minutes = components.minute ?? 0
 
         func plural(_ value: Int, _ unit: String) -> String {
             "\(value) \(unit)\(value == 1 ? "" : "s")"
@@ -60,24 +64,42 @@ extension Game {
                 ? "\(plural(years, "year")) \(plural(months, "month"))"
                 : plural(years, "year")
         }
+
         if months > 0 {
-            return days > 0
-                ? "\(plural(months, "month")) \(plural(days, "day"))"
+            let remainingDays = days - (months * 30)
+            return remainingDays > 0
+                ? "\(plural(months, "month")) \(plural(max(remainingDays, 0), "day"))"
                 : plural(months, "month")
         }
+
+        if weeks > 0 {
+            if remainingDaysAfterWeeks > 0 {
+                return "\(plural(weeks, "week")) \(plural(remainingDaysAfterWeeks, "day"))"
+            } else if remainingHoursAfterWeeks > 0 {
+                return "\(plural(weeks, "week")) \(plural(remainingHoursAfterWeeks, "hour"))"
+            } else {
+                return plural(weeks, "week")
+            }
+        }
+
         if days > 0 {
-            return hours > 0
-                ? "\(plural(days, "day")) \(plural(hours, "hour"))"
+            let remainingHours = hours - (days * 24)
+            return remainingHours > 0
+                ? "\(plural(days, "day")) \(plural(remainingHours, "hour"))"
                 : plural(days, "day")
         }
+
         if hours > 0 {
-            return minutes > 0
-                ? "\(plural(hours, "hour")) \(plural(minutes, "minute"))"
+            let remainingMinutes = minutes - (hours * 60)
+            return remainingMinutes > 0
+                ? "\(plural(hours, "hour")) \(plural(remainingMinutes, "minute"))"
                 : plural(hours, "hour")
         }
+
         if minutes > 0 {
             return plural(minutes, "minute")
         }
+
         return "Less than a minute"
     }
 }
