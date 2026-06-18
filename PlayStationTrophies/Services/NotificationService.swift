@@ -34,13 +34,14 @@ final class NotificationService {
 
     // MARK: - New DLC
 
-    func sendNewDLCNotification(dlcName: String, gameName: String) async {
+    func sendNewDLCNotification(dlcName: String, gameName: String, communicationId: String) async {
         guard await isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "New DLC available — \(gameName)"
         content.body = "\(dlcName) is now available. Go hunting trophies! 🏆"
         content.sound = .default
+        content.userInfo = ["communicationId": communicationId]
 
         let request = UNNotificationRequest(
             identifier: "dlc-\(gameName)-\(dlcName)-\(Date().timeIntervalSince1970)",

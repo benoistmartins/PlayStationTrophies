@@ -12,6 +12,7 @@ struct HomeView: View {
     @EnvironmentObject private var profileStore: ProfileStore
     @EnvironmentObject private var authViewModel: PSNAuthViewModel
     @EnvironmentObject private var syncViewModel: PSNSyncViewModel
+    @Binding var navigateToGameId: UUID?
     @State private var showProfile = false
     @State private var showSettings = false
     @State private var showAdvancedSearch = false
@@ -207,6 +208,24 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showAdvancedSearch) {
                 AdvancedSearchView(filter: $activeFilter)
+            }
+            .onChange(of: navigateToGameId) { _, gameId in
+                if gameId != nil {
+                    showSync = false
+                    showProfile = false
+                    showSettings = false
+                    showAdvancedSearch = false
+                }
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { navigateToGameId != nil },
+                set: { if !$0 { navigateToGameId = nil } }
+            )) {
+                if let gameId = navigateToGameId,
+                   let game = store.games.first(where: { $0.id == gameId }) {
+                    GameDetailView(game: game)
+                        .environmentObject(syncViewModel)
+                }
             }
         }
     }

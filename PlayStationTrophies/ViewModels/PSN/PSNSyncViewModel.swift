@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 final class PSNSyncViewModel: ObservableObject {
     @Published var isSyncing = false
@@ -14,6 +15,7 @@ final class PSNSyncViewModel: ObservableObject {
     @Published var syncResult: PSNSyncResult? = nil
     @Published var error: String? = nil
     @Published var lastSyncDate: Date? = nil
+    @Published var pendingAchievements: [AchievementUnlock] = []
 
     private let syncService: PSNSyncService
     private let cooldown: TimeInterval = 3 * 60 * 60
@@ -50,15 +52,15 @@ final class PSNSyncViewModel: ObservableObject {
         guard !isSyncing, canSync else { return }
         isSyncing = true
         syncResult = nil
-
         Task {
             do {
-                let result = try await syncService.syncAll(optimized: optimized)
+                let (result, achievements) = try await syncService.syncAll(optimized: optimized)
                 await MainActor.run {
                     syncResult = result
                     isSyncing = false
                     lastSyncDate = Date()
                     UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
+                    pendingAchievements = achievements
                 }
             } catch {
                 await MainActor.run {
@@ -74,21 +76,33 @@ final class PSNSyncViewModel: ObservableObject {
         guard let communicationId = game.psnCommunicationId,
               let serviceName = game.psnServiceName else { return }
         isSyncingGame = true
-
         Task {
             do {
-                try await syncService.syncSingleGame(
+                let achievements = try await syncService.syncSingleGame(
                     communicationId: communicationId,
                     serviceName: serviceName
                 )
                 await MainActor.run {
                     isSyncingGame = false
+                    pendingAchievements = achievements
                 }
             } catch {
                 await MainActor.run {
                     self.error = error.localizedDescription
                     isSyncingGame = false
                 }
+            }
+        }
+    }
+
+    func dismissFirstAchievement() {
+        guard !pendingAchievements.isEmpty else { return }
+        pendingAchievements.removeFirst()
+        if !pendingAchievements.isEmpty {
+            let remaining = pendingAchievements
+            pendingAchievements = []
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.pendingAchievements = remaining
             }
         }
     }

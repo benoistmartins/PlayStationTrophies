@@ -27,7 +27,7 @@ final class PSNSyncService {
 
     // MARK: - Sync All
 
-    func syncAll(optimized: Bool = true) async throws -> PSNSyncResult {
+    func syncAll(optimized: Bool = true) async throws -> (PSNSyncResult, [AchievementUnlock]) {
         try await syncProfile()
         return try await syncGames(optimized: optimized)
     }
@@ -50,9 +50,10 @@ final class PSNSyncService {
 
     // MARK: - Games
 
-    func syncGames(optimized: Bool = true) async throws -> PSNSyncResult {
+    func syncGames(optimized: Bool = true) async throws -> (PSNSyncResult, [AchievementUnlock]) {
         let titles = try await apiService.fetchAllTitles()
         var result = PSNSyncResult()
+        var allAchievements: [AchievementUnlock] = []
 
         for title in titles {
             guard title.hiddenFlag != true else {
@@ -60,7 +61,8 @@ final class PSNSyncService {
                 continue
             }
             do {
-                try await syncTitle(title, result: &result, force: !optimized)
+                let achievements = try await syncTitle(title, result: &result, force: !optimized)
+                allAchievements.append(contentsOf: achievements)
             } catch {
                 result.errors.append("\(title.trophyTitleName): \(error.localizedDescription)")
             }
@@ -71,19 +73,20 @@ final class PSNSyncService {
             store.savePublic()
         }
 
-        return result
+        return (result, allAchievements)
     }
 
     // MARK: - Sync single game
 
-    func syncSingleGame(communicationId: String, serviceName: String) async throws {
+    func syncSingleGame(communicationId: String, serviceName: String) async throws -> [AchievementUnlock] {
         let titles = try await apiService.fetchAllTitles()
         guard let title = titles.first(where: { $0.npCommunicationId == communicationId }) else {
             throw PSNAPIError.invalidResponse
         }
         var result = PSNSyncResult()
-        try await syncTitle(title, result: &result, force: true)
+        let achievements = try await syncTitle(title, result: &result, force: true)
         await MainActor.run { store.savePublic() }
+        return achievements
     }
 
     // MARK: - Deduplication
@@ -138,10 +141,12 @@ final class PSNSyncService {
 
     // MARK: - Sync title
 
-    private func syncTitle(_ title: PSNTitle, result: inout PSNSyncResult, force: Bool = false) async throws {
+    @discardableResult
+    private func syncTitle(_ title: PSNTitle, result: inout PSNSyncResult, force: Bool = false) async throws -> [AchievementUnlock] {
         let serviceName = PSNServiceName(from: title.npServiceName)
         let platforms = platformsFrom(title)
         let primaryPlatform = platforms.first ?? .ps4
+        var achievements: [AchievementUnlock] = []
 
         if let index = await MainActor.run(body: {
             store.games.firstIndex(where: { $0.psnCommunicationId == title.npCommunicationId })
@@ -150,7 +155,7 @@ final class PSNSyncService {
 
             if !force && !shouldSync(title, game: game) {
                 result.skipped += 1
-                return
+                return []
             }
 
             var groupNameMap: [String: String] = [:]
@@ -182,8 +187,25 @@ final class PSNSyncService {
             for ext in newExtensions {
                 await NotificationService.shared.sendNewDLCNotification(
                     dlcName: ext.name,
-                    gameName: updatedGame.title
+                    gameName: updatedGame.title,
+                    communicationId: updatedGame.psnCommunicationId ?? ""
                 )
+            }
+
+            let hadPlatinum = game.hasPlatinum
+            let hadHundredPercent = game.completionPercentage == 100
+            let hasPlatinumNow = updatedGame.hasPlatinum
+            let hasHundredPercentNow = updatedGame.completionPercentage == 100
+            let hasExtensions = updatedGame.extensions.count > 1
+
+            if !hadPlatinum && hasPlatinumNow {
+                achievements.append(AchievementUnlock(type: .platinum, game: updatedGame))
+            }
+
+            if !hadHundredPercent && hasHundredPercentNow {
+                if !hasPlatinumNow || hasExtensions {
+                    achievements.append(AchievementUnlock(type: .hundredPercent, game: updatedGame))
+                }
             }
 
             await MainActor.run { store.games[index] = updatedGame }
@@ -208,6 +230,8 @@ final class PSNSyncService {
             await MainActor.run { store.games.append(game) }
             result.added += 1
         }
+
+        return achievements
     }
 
     private func buildGame(from title: PSNTitle, primaryPlatform: Platform, platforms: [Platform]) -> Game {
@@ -330,10 +354,10 @@ final class PSNSyncService {
 
         var platforms: [Platform] = []
         for part in parts {
-            if part.contains("PS5")                                    { platforms.append(.ps5) }
-            else if part.contains("PS3")                               { platforms.append(.ps3) }
-            else if part.contains("PSVITA") || part.contains("VITA")   { platforms.append(.vita) }
-            else if part.contains("PS4")                               { platforms.append(.ps4) }
+            if part.contains("PS5")                                   { platforms.append(.ps5) }
+            else if part.contains("PS3")                              { platforms.append(.ps3) }
+            else if part.contains("PSVITA") || part.contains("VITA")  { platforms.append(.vita) }
+            else if part.contains("PS4")                              { platforms.append(.ps4) }
         }
         return platforms.isEmpty ? [.ps4] : platforms
     }

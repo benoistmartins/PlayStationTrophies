@@ -8,7 +8,10 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject private var store: DataStore
+    @Binding var navigateToGameId: UUID?
+
     var body: some View {
-        HomeView()
+        HomeView(navigateToGameId: $navigateToGameId)
     }
 }

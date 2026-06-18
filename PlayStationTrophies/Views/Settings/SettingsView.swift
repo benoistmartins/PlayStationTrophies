@@ -12,6 +12,9 @@ struct SettingsView: View {
     @EnvironmentObject private var authViewModel: PSNAuthViewModel
     @EnvironmentObject private var syncViewModel: PSNSyncViewModel
     @AppStorage("appTheme") private var appTheme: AppTheme = .system
+    @Environment(\.dismiss) private var dismiss
+    @State private var showDebug = false
+    @State private var debugTapCount = 0
 
     var body: some View {
         NavigationStack {
@@ -30,9 +33,32 @@ struct SettingsView: View {
                         .onTapGesture { appTheme = theme }
                     }
                 }
+
+                Section {
+                    EmptyView()
+                } footer: {
+                    Text("PlayStationTrophies")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .onTapGesture {
+                            debugTapCount += 1
+                            if debugTapCount >= 7 {
+                                debugTapCount = 0
+                                showDebug = true
+                            }
+                        }
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(isPresented: $showDebug) {
+                DebugView(onDismissAll: {
+                    dismiss()
+                })
+                .environmentObject(store)
+                .environmentObject(syncViewModel)
+            }
         }
     }
 }
