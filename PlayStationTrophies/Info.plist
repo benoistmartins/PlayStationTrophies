@@ -13,5 +13,7 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>PlayStationTrophies sends you a notification when a new DLC is available for your games.</string>
 </dict>
 </plist>

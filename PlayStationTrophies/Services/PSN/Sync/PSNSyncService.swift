@@ -174,6 +174,18 @@ final class PSNSyncService {
                 updatedGame.lastUpdate = date
             }
             try await syncTrophies(into: &updatedGame, title: title, serviceName: serviceName, groupNameMap: groupNameMap, groupIconMap: groupIconMap)
+
+            let existingExtNames = Set(game.extensions.map { $0.name })
+            let newExtensions = updatedGame.extensions.filter {
+                $0.name != "Base Game" && !existingExtNames.contains($0.name)
+            }
+            for ext in newExtensions {
+                await NotificationService.shared.sendNewDLCNotification(
+                    dlcName: ext.name,
+                    gameName: updatedGame.title
+                )
+            }
+
             await MainActor.run { store.games[index] = updatedGame }
             result.updated += 1
 
@@ -318,10 +330,10 @@ final class PSNSyncService {
 
         var platforms: [Platform] = []
         for part in parts {
-            if part.contains("PS5")                                   { platforms.append(.ps5) }
-            else if part.contains("PS3")                              { platforms.append(.ps3) }
-            else if part.contains("PSVITA") || part.contains("VITA")  { platforms.append(.vita) }
-            else if part.contains("PS4")                              { platforms.append(.ps4) }
+            if part.contains("PS5")                                    { platforms.append(.ps5) }
+            else if part.contains("PS3")                               { platforms.append(.ps3) }
+            else if part.contains("PSVITA") || part.contains("VITA")   { platforms.append(.vita) }
+            else if part.contains("PS4")                               { platforms.append(.ps4) }
         }
         return platforms.isEmpty ? [.ps4] : platforms
     }

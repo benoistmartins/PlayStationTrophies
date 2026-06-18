@@ -13,7 +13,6 @@ struct PlayStationTrophiesApp: App {
     @StateObject private var profileStore = ProfileStore()
     @AppStorage("appTheme") private var appTheme: AppTheme = .system
     @State private var isLaunching = true
-
     private let psnContainer: PSNServiceContainer
 
     init() {
@@ -44,6 +43,9 @@ struct PlayStationTrophiesApp: App {
                     .environmentObject(psnContainer.authViewModel)
                     .environmentObject(psnContainer.syncViewModel)
                     .preferredColorScheme(appTheme.colorScheme)
+                    .task {
+                        _ = await NotificationService.shared.requestAuthorization()
+                    }
             }
         }
     }
