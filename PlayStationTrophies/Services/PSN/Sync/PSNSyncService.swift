@@ -55,6 +55,10 @@ final class PSNSyncService {
         var result = PSNSyncResult()
 
         for title in titles {
+            guard title.hiddenFlag != true else {
+                result.skipped += 1
+                continue
+            }
             do {
                 try await syncTitle(title, result: &result, force: !optimized)
             } catch {
@@ -132,7 +136,7 @@ final class PSNSyncService {
         return false
     }
 
-    // MARK: - Private
+    // MARK: - Sync title
 
     private func syncTitle(_ title: PSNTitle, result: inout PSNSyncResult, force: Bool = false) async throws {
         let serviceName = PSNServiceName(from: title.npServiceName)
