@@ -39,7 +39,11 @@ struct Game: Identifiable, Codable {
 
     var completionPercentage: Double {
         guard maxPoints > 0 else { return 0 }
-        return Double(earnedPoints) / Double(maxPoints) * 100
+        let raw = Double(earnedPoints) / Double(maxPoints) * 100
+        if raw > 0 && raw < 1 {
+            return 1
+        }
+        return raw
     }
 
     var totalPoints: Int {
@@ -73,7 +77,11 @@ struct Game: Identifiable, Codable {
         let maxPts = trophiesForExt.filter { $0.type != .platinum }.reduce(0) { $0 + $1.type.points }
         let earnedPts = trophiesForExt.filter { $0.isUnlocked && $0.type != .platinum }.reduce(0) { $0 + $1.type.points }
         guard maxPts > 0 else { return 0 }
-        return Double(earnedPts) / Double(maxPts) * 100
+        let raw = Double(earnedPts) / Double(maxPts) * 100
+        if raw > 0 && raw < 1 {
+            return 1
+        }
+        return raw
     }
 }
 

@@ -37,14 +37,14 @@ struct AchievementPopupView: View {
 
     var body: some View {
         ZStack {
-            // Fond blur
             Color.black.opacity(0.6)
                 .ignoresSafeArea()
                 .onTapGesture { dismiss() }
 
-            // Carte
+            ConfettiView()
+                .ignoresSafeArea()
+
             VStack(spacing: 20) {
-                // Image du jeu
                 CoverImageView(
                     url: achievement.game.coverURL,
                     size: CGSize(width: 120, height: 120)
