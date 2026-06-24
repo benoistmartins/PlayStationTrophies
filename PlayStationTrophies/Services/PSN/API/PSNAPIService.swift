@@ -25,6 +25,49 @@ final class PSNAPIService {
         return try decode(PSNProfile.self, from: data)
     }
 
+    // MARK: - Search account ID by PSN ID
+
+    func fetchAccountId(for psnId: String) async throws -> String {
+        let token = try await authService.validAccessToken()
+        let url = URL(string: "https://m.np.playstation.com/api/search/v1/universalSearch")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("4.0", forHTTPHeaderField: "X-Psn-Schema-Version")
+        request.setValue("PlayStation/22.5.0 CFNetwork/1399 Darwin/22.1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "searchTerm": psnId,
+            "domainRequests": [["domain": "SocialAllAccounts"]]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw PSNAPIError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 403 { throw PSNAPIError.privateProfile(psnId) }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            print("❌ PSNAPIService | HTTP \(httpResponse.statusCode) — universalSearch")
+            print("❌ PSNAPIService | Body: \(String(data: data, encoding: .utf8) ?? "nil")")
+            throw PSNAPIError.httpError(httpResponse.statusCode)
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let domainResponses = json?["domainResponses"] as? [[String: Any]]
+        let results = domainResponses?.first?["results"] as? [[String: Any]]
+        let socialMetadata = results?.first?["socialMetadata"] as? [String: Any]
+
+        guard let accountId = socialMetadata?["accountId"] as? String else {
+            throw PSNAPIError.userNotFound(psnId)
+        }
+        return accountId
+    }
+
     // MARK: - Titles
 
     func fetchAllTitles() async throws -> [PSNTitle] {
@@ -78,6 +121,34 @@ final class PSNAPIService {
         let data = try await get(url: components.url!, token: token)
         let response = try decode(PSNTrophiesResponse.self, from: data)
         return response.trophies
+    }
+
+    func fetchEarnedTrophies(for accountId: String, npCommunicationId: String, serviceName: PSNServiceName, psnId: String) async throws -> [PSNTrophy] {
+        let token = try await authService.validAccessToken()
+        var components = URLComponents(string: "\(baseURL)/users/\(accountId)/npCommunicationIds/\(npCommunicationId)/trophyGroups/all/trophies")!
+        components.queryItems = [URLQueryItem(name: "npServiceName", value: serviceName.rawValue)]
+
+        var request = URLRequest(url: components.url!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("4.0", forHTTPHeaderField: "X-Psn-Schema-Version")
+        request.setValue("PlayStation/22.5.0 CFNetwork/1399 Darwin/22.1.0", forHTTPHeaderField: "User-Agent")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw PSNAPIError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 403 { throw PSNAPIError.privateProfile(psnId) }
+        if httpResponse.statusCode == 404 { throw PSNAPIError.gameNotFound(psnId) }
+        if httpResponse.statusCode == 429 { throw PSNAPIError.rateLimited }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            print("❌ PSNAPIService | HTTP \(httpResponse.statusCode) — \(components.url!.absoluteString)")
+            print("❌ PSNAPIService | Body: \(String(data: data, encoding: .utf8) ?? "nil")")
+            throw PSNAPIError.httpError(httpResponse.statusCode)
+        }
+
+        return try decode(PSNTrophiesResponse.self, from: data).trophies
     }
 
     // MARK: - Private

@@ -10,6 +10,8 @@ import SwiftUI
 struct GameDetailView: View {
     @EnvironmentObject private var store: DataStore
     @EnvironmentObject private var syncViewModel: PSNSyncViewModel
+    @EnvironmentObject private var psnContainer: PSNServiceContainer
+    @EnvironmentObject private var profileStore: ProfileStore
 
     let gameId: UUID
 
@@ -19,6 +21,7 @@ struct GameDetailView: View {
     @State private var showHidden = false
     @State private var trophySort: TrophySort = .defaultOrder
     @State private var trophyFilter: TrophyFilter = .all
+    @State private var showCompare = false
 
     init(game: Game) {
         self.gameId = game.id
@@ -27,8 +30,6 @@ struct GameDetailView: View {
     private var isFiltered: Bool { trophyFilter != .all }
     private var isSorted: Bool { trophySort != .defaultOrder }
     private var isModified: Bool { isFiltered || isSorted }
-
-    // MARK: - Filter
 
     private func applyFilter(_ trophies: [Trophy]) -> [Trophy] {
         switch trophyFilter {
@@ -42,8 +43,6 @@ struct GameDetailView: View {
         case .bronze:     return trophies.filter { $0.type == .bronze }
         }
     }
-
-    // MARK: - Sort
 
     private func groupedTrophies(_ trophies: [Trophy]) -> [(header: String, trophies: [Trophy])] {
         switch trophySort {
@@ -170,6 +169,12 @@ struct GameDetailView: View {
                                 }
 
                                 Button {
+                                    showCompare = true
+                                } label: {
+                                    Label("Compare with a friend", systemImage: "person.2")
+                                }
+
+                                Button {
                                     var updated = game
                                     updated.isFavorite.toggle()
                                     store.updateGame(updated)
@@ -207,6 +212,11 @@ struct GameDetailView: View {
                             }
                         }
                     }
+                }
+                .sheet(isPresented: $showCompare) {
+                    CompareView(game: game)
+                        .environmentObject(psnContainer)
+                        .environmentObject(profileStore)
                 }
             } else {
                 ContentUnavailableView("Game not found", systemImage: "gamecontroller")
@@ -247,8 +257,6 @@ struct GameDetailView: View {
             Text(syncViewModel.error ?? "")
         }
     }
-
-    // MARK: - Stats
 
     private func statsSection(game: Game) -> some View {
         Section {
@@ -397,8 +405,6 @@ struct GameDetailView: View {
         }
     }
 
-    // MARK: - Trophies
-
     @ViewBuilder
     private func trophiesSection(game: Game) -> some View {
         if game.trophies.isEmpty {
@@ -471,8 +477,6 @@ struct GameDetailView: View {
             }
         }
     }
-
-    // MARK: - Extension group
 
     @ViewBuilder
     private func extensionGroup(ext: GameExtension, trophies: [Trophy], game: Game) -> some View {
@@ -547,8 +551,6 @@ struct GameDetailView: View {
             }
         }
     }
-
-    // MARK: - Helpers
 
     private var groupImageFallback: some View {
         RoundedRectangle(cornerRadius: 6)

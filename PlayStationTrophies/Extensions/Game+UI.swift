@@ -8,23 +8,22 @@
 import SwiftUI
 
 extension Game {
-    var progressColor: Color {
-        switch completionPercentage {
-        case 90...:  return .blue
-        case 60...:  return .green
-        case 30...:  return .orange
-        default:     return .red
+
+    static func progressColor(for percentage: Double) -> Color {
+        switch percentage {
+        case 90...: return .blue
+        case 60...: return .green
+        case 30...: return .orange
+        default:    return .red
         }
     }
 
+    var progressColor: Color {
+        Game.progressColor(for: completionPercentage)
+    }
+
     func completionColor(for extension_: String) -> Color {
-        let percentage = completionPercentage(for: extension_)
-        switch percentage {
-        case 90...:  return .blue
-        case 60...:  return .green
-        case 30...:  return .orange
-        default:     return .red
-        }
+        Game.progressColor(for: completionPercentage(for: extension_))
     }
 
     // MARK: - Completion timing
