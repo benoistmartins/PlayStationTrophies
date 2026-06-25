@@ -53,11 +53,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(isPresented: $showDebug) {
-                DebugView(onDismissAll: {
-                    dismiss()
-                })
-                .environmentObject(store)
-                .environmentObject(syncViewModel)
+                DebugView(onDismissAll: { dismiss() })
+                    .environmentObject(store)
+                    .environmentObject(syncViewModel)
             }
         }
     }
