@@ -4,16 +4,16 @@ An iOS app to track your PlayStation Network trophies, built with SwiftUI.
 
 ## Features
 
-- **PSN Sync** — Automatically sync your games and trophies from PlayStation Network
-- **Trophy tracking** — Browse all your trophies with filters, sorts and progression tracking
-- **Statistics** — Detailed stats on your profile (level, completion rate, activity charts)
-- **Completion time** — Track how long it took to platinum or 100% a game
-- **Achievement popup** — Celebrate platinums and 100% completions with a popup and confetti
-- **Share card** — Generate and share a beautiful card when you unlock a platinum or 100%
-- **DLC notifications** — Get notified when a new DLC is available for your games
-- **PSN Comparison** — Compare your trophies with any PSN player on a specific game
-- **Recent trophies** — See your latest unlocked trophies at a glance
-- **Favorites** — Mark your favorite games for quick access
+- **PSN Sync** - Automatically sync your games and trophies from PlayStation Network
+- **Trophy tracking** - Browse all your trophies with filters, sorts and progression tracking
+- **Statistics** - Detailed stats on your profile (level, completion rate, activity charts)
+- **Completion time** - Track how long it took to platinum or 100% a game
+- **Achievement popup** - Celebrate platinums and 100% completions with a popup and confetti
+- **Share card** - Generate and share a beautiful card when you unlock a platinum or 100%
+- **DLC notifications** - Get notified when a new DLC is available for your games
+- **PSN Comparison** - Compare your trophies with any PSN player on a specific game
+- **Recent trophies** - See your latest unlocked trophies at a glance
+- **Favorites** - Mark your favorite games for quick access
 
 ## Requirements
 
@@ -23,10 +23,10 @@ An iOS app to track your PlayStation Network trophies, built with SwiftUI.
 
 ## Architecture
 
-- **SwiftUI** — UI framework
-- **MVVM** — Architecture pattern
-- **JSON persistence** — Local data storage
-- **PSN API** — Unofficial PlayStation Network API
+- **SwiftUI** - UI framework
+- **MVVM** - Architecture pattern
+- **JSON persistence** - Local data storage
+- **PSN API** - Unofficial PlayStation Network API
 
 ## Setup
 
