@@ -10,7 +10,7 @@ import SwiftUI
 struct CoverImageView: View {
     let url: URL?
     let size: CGSize
-    
+
     var body: some View {
         Group {
             if let url {
@@ -21,9 +21,12 @@ struct CoverImageView: View {
                             ProgressView()
                         }
                     case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
+                        ZStack {
+                            Color(.systemGray5)
+                            image
+                                .resizable()
+                                .scaledToFit()
+                        }
                     case .failure:
                         placeholder.overlay {
                             Image(systemName: "photo.badge.exclamationmark")
@@ -40,7 +43,7 @@ struct CoverImageView: View {
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
-    
+
     private var placeholder: some View {
         RoundedRectangle(cornerRadius: 8)
             .fill(Color(.systemGray5))

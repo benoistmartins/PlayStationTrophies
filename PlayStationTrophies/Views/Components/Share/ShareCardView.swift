@@ -49,18 +49,16 @@ struct ShareCardView: View {
             )
 
             VStack(spacing: 20) {
-                Group {
+                ZStack {
+                    Color(.systemGray5)
                     if let coverImage {
                         Image(uiImage: coverImage)
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
                     } else {
-                        ZStack {
-                            Color(.systemGray5)
-                            Image(systemName: "gamecontroller")
-                                .foregroundStyle(.secondary)
-                                .font(.largeTitle)
-                        }
+                        Image(systemName: "gamecontroller")
+                            .foregroundStyle(.secondary)
+                            .font(.largeTitle)
                     }
                 }
                 .frame(width: 100, height: 100)
