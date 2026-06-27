@@ -12,4 +12,5 @@ struct CompareResult {
     let friendAvatarUrl: URL?
     let friendTrophyCount: Int
     let friendCompletionPercentage: Double
+    let friendHasPlatinum: Bool
 }

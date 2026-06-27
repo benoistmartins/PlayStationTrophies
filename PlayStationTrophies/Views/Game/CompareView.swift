@@ -18,6 +18,9 @@ struct CompareView: View {
     @State private var error: String? = nil
     @State private var compareResult: CompareResult? = nil
     @State private var comparedWith = ""
+    @State private var friends: [PSNFriend] = []
+    @State private var friendsWithGame: Set<String> = []
+    @State private var isLoadingFriends = false
 
     private let historyKey = "compare_psn_history"
 
@@ -27,6 +30,10 @@ struct CompareView: View {
 
     private var comparisons: [ComparisonGroup: [TrophyComparison]] {
         compareResult?.comparisons ?? [:]
+    }
+
+    private var friendsFiltered: [PSNFriend] {
+        friends.filter { friendsWithGame.contains($0.id) }
     }
 
     var body: some View {
@@ -42,7 +49,7 @@ struct CompareView: View {
                             ProgressView().scaleEffect(0.8)
                         } else {
                             Button {
-                                Task { await compare() }
+                                Task { await compare(with: psnId) }
                             } label: {
                                 Text("Compare")
                                     .font(.headline)
@@ -59,32 +66,86 @@ struct CompareView: View {
                     }
                 }
 
-                let filteredHistory = history.filter {
-                    psnId.isEmpty || $0.localizedCaseInsensitiveContains(psnId)
-                }
-                if !filteredHistory.isEmpty && compareResult == nil {
-                    Section("Recent searches") {
-                        ForEach(filteredHistory, id: \.self) { id in
+                if compareResult == nil {
+                    if isLoadingFriends {
+                        Section("Friends") {
                             HStack {
-                                Image(systemName: "clock")
-                                    .foregroundStyle(.secondary)
+                                ProgressView()
+                                Text("Loading friends...")
                                     .font(.caption)
-                                Text(id)
-                                Spacer()
-                                Image(systemName: "arrow.up.left")
                                     .foregroundStyle(.secondary)
-                                    .font(.caption)
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                psnId = id
-                                Task { await compare() }
                             }
                         }
-                        .onDelete { indexSet in
-                            var current = history
-                            current.remove(atOffsets: indexSet)
-                            UserDefaults.standard.set(current, forKey: historyKey)
+                    } else if !friendsFiltered.isEmpty {
+                        Section("Friends who played this game") {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 16) {
+                                    ForEach(friendsFiltered) { friend in
+                                        Button {
+                                            psnId = friend.onlineId
+                                            Task { await compare(with: friend.onlineId) }
+                                        } label: {
+                                            VStack(spacing: 6) {
+                                                Group {
+                                                    if let url = friend.avatarUrl {
+                                                        AsyncImage(url: url) { phase in
+                                                            switch phase {
+                                                            case .success(let image):
+                                                                image.resizable().scaledToFill()
+                                                            default:
+                                                                avatarPlaceholder
+                                                            }
+                                                        }
+                                                    } else {
+                                                        avatarPlaceholder
+                                                    }
+                                                }
+                                                .frame(width: 52, height: 52)
+                                                .clipShape(Circle())
+
+                                                Text(friend.onlineId)
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.primary)
+                                                    .lineLimit(1)
+                                                    .frame(width: 60)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        }
+                    }
+
+                    let filteredHistory = history.filter {
+                        psnId.isEmpty || $0.localizedCaseInsensitiveContains(psnId)
+                    }
+                    if !filteredHistory.isEmpty {
+                        Section("Recent searches") {
+                            ForEach(filteredHistory, id: \.self) { id in
+                                HStack {
+                                    Image(systemName: "clock")
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                    Text(id)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.left")
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    psnId = id
+                                    Task { await compare(with: id) }
+                                }
+                            }
+                            .onDelete { indexSet in
+                                var current = history
+                                current.remove(atOffsets: indexSet)
+                                UserDefaults.standard.set(current, forKey: historyKey)
+                            }
                         }
                     }
                 }
@@ -105,6 +166,11 @@ struct CompareView: View {
                                 Text(String(format: "%.0f%%", game.completionPercentage))
                                     .font(.caption.bold())
                                     .foregroundStyle(game.progressColor)
+                                if game.hasPlatinum {
+                                    Image(systemName: "trophy.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.cyan)
+                                }
                             }
                             .frame(maxWidth: .infinity)
 
@@ -127,6 +193,11 @@ struct CompareView: View {
                                 Text(String(format: "%.0f%%", result.friendCompletionPercentage))
                                     .font(.caption.bold())
                                     .foregroundStyle(Game.progressColor(for: result.friendCompletionPercentage))
+                                if result.friendHasPlatinum {
+                                    Image(systemName: "trophy.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.cyan)
+                                }
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -161,6 +232,17 @@ struct CompareView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if compareResult != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            compareResult = nil
+                            comparedWith = ""
+                            psnId = ""
+                        } label: {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                    }
+                }
                 ToolbarItem(placement: .principal) {
                     Text(compareResult != nil
                          ? "\(game.title) - Compare with \(comparedWith)"
@@ -172,6 +254,9 @@ struct CompareView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .task {
+                await loadFriends()
             }
         }
     }
@@ -228,15 +313,52 @@ struct CompareView: View {
         }
     }
 
-    private func compare() async {
+    private func loadFriends() async {
+        isLoadingFriends = true
+        let loadedFriends = (try? await psnContainer.apiService.fetchFriends()) ?? []
+        friends = loadedFriends
+
+        guard let communicationId = game.psnCommunicationId,
+              let serviceNameString = game.psnServiceName else {
+            isLoadingFriends = false
+            return
+        }
+
+        let serviceName = PSNServiceName(from: serviceNameString)
+
+        let batchSize = 5
+        for batchStart in stride(from: 0, to: loadedFriends.count, by: batchSize) {
+            let batch = Array(loadedFriends[batchStart..<min(batchStart + batchSize, loadedFriends.count)])
+            await withTaskGroup(of: (String, Bool).self) { group in
+                for friend in batch {
+                    group.addTask {
+                        let has = await psnContainer.apiService.hasTrophies(
+                            for: friend.id,
+                            npCommunicationId: communicationId,
+                            serviceName: serviceName
+                        )
+                        return (friend.id, has)
+                    }
+                }
+                for await (id, has) in group {
+                    if has { friendsWithGame.insert(id) }
+                }
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+
+        isLoadingFriends = false
+    }
+
+    private func compare(with id: String) async {
         isLoading = true
         error = nil
         compareResult = nil
         do {
             let compareService = PSNCompareService(apiService: psnContainer.apiService)
-            compareResult = try await compareService.compare(game: game, withPSNId: psnId)
-            comparedWith = psnId
-            saveToHistory(psnId)
+            compareResult = try await compareService.compare(game: game, withPSNId: id)
+            comparedWith = id
+            saveToHistory(id)
         } catch {
             self.error = error.localizedDescription
         }

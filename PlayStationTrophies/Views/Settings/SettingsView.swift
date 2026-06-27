@@ -37,7 +37,7 @@ struct SettingsView: View {
                 Section {
                     EmptyView()
                 } footer: {
-                    Text("PlayStationTrophies")
+                    Text("PlayStationTrophies © Benoist Martins")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .center)

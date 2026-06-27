@@ -68,6 +68,55 @@ final class PSNAPIService {
         return accountId
     }
 
+    // MARK: - Friends
+
+    func fetchFriendAccountIds() async throws -> [String] {
+        let token = try await authService.validAccessToken()
+        var components = URLComponents(string: "\(profileBaseURL)/me/friends")!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "200"),
+            URLQueryItem(name: "offset", value: "0")
+        ]
+        let data = try await get(url: components.url!, token: token)
+        let response = try decode(PSNFriendsResponse.self, from: data)
+        return response.friends
+    }
+
+    func fetchFriends() async throws -> [PSNFriend] {
+        let accountIds = try await fetchFriendAccountIds()
+        var friends: [PSNFriend] = []
+        await withTaskGroup(of: PSNFriend?.self) { group in
+            for accountId in accountIds {
+                group.addTask {
+                    guard let profile = try? await self.fetchProfile(accountId: accountId) else { return nil }
+                    let avatarUrlString = await MainActor.run { profile.avatarUrl }
+                    let avatarUrl = avatarUrlString.flatMap {
+                        URL(string: $0.replacingOccurrences(of: "http://", with: "https://"))
+                    }
+                    return PSNFriend(
+                        id: accountId,
+                        onlineId: profile.onlineId,
+                        avatarUrl: avatarUrl
+                    )
+                }
+            }
+            for await friend in group {
+                if let friend { friends.append(friend) }
+            }
+        }
+        return friends.sorted { $0.onlineId.lowercased() < $1.onlineId.lowercased() }
+    }
+
+    func hasTrophies(for accountId: String, npCommunicationId: String, serviceName: PSNServiceName) async -> Bool {
+        guard let _ = try? await fetchEarnedTrophies(
+            for: accountId,
+            npCommunicationId: npCommunicationId,
+            serviceName: serviceName,
+            psnId: ""
+        ) else { return false }
+        return true
+    }
+
     // MARK: - Titles
 
     func fetchAllTitles() async throws -> [PSNTitle] {

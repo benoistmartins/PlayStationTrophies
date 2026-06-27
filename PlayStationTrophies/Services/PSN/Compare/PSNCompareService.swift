@@ -45,6 +45,7 @@ final class PSNCompareService {
         ]
 
         var friendEarnedPoints = 0
+        var friendHasPlatinum = false
         let maxPoints = game.maxPoints
 
         for trophy in game.trophies {
@@ -52,8 +53,12 @@ final class PSNCompareService {
             let theirEarned = theirMap[psnTrophyId]?.earned ?? false
             let myEarned = trophy.isUnlocked
 
-            if theirEarned && trophy.type != .platinum {
-                friendEarnedPoints += trophy.type.points
+            if theirEarned {
+                if trophy.type == .platinum {
+                    friendHasPlatinum = true
+                } else {
+                    friendEarnedPoints += trophy.type.points
+                }
             }
 
             let comparison = TrophyComparison(
@@ -85,7 +90,8 @@ final class PSNCompareService {
             comparisons: result,
             friendAvatarUrl: avatarUrl,
             friendTrophyCount: friendCount,
-            friendCompletionPercentage: friendCompletion
+            friendCompletionPercentage: friendCompletion,
+            friendHasPlatinum: friendHasPlatinum
         )
     }
 }
