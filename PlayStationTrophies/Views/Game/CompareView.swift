@@ -76,46 +76,52 @@ struct CompareView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                    } else if !friendsFiltered.isEmpty {
-                        Section("Friends who played this game") {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 16) {
-                                    ForEach(friendsFiltered) { friend in
-                                        Button {
-                                            psnId = friend.onlineId
-                                            Task { await compare(with: friend.onlineId) }
-                                        } label: {
-                                            VStack(spacing: 6) {
-                                                Group {
-                                                    if let url = friend.avatarUrl {
-                                                        AsyncImage(url: url) { phase in
-                                                            switch phase {
-                                                            case .success(let image):
-                                                                image.resizable().scaledToFill()
-                                                            default:
-                                                                avatarPlaceholder
+                    } else if !friends.isEmpty {
+                        Section("Friends") {
+                            if friendsFiltered.isEmpty {
+                                Text("None of your friends have this game yet")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 16) {
+                                        ForEach(friendsFiltered) { friend in
+                                            Button {
+                                                psnId = friend.onlineId
+                                                Task { await compare(with: friend.onlineId) }
+                                            } label: {
+                                                VStack(spacing: 6) {
+                                                    Group {
+                                                        if let url = friend.avatarUrl {
+                                                            AsyncImage(url: url) { phase in
+                                                                switch phase {
+                                                                case .success(let image):
+                                                                    image.resizable().scaledToFill()
+                                                                default:
+                                                                    avatarPlaceholder
+                                                                }
                                                             }
+                                                        } else {
+                                                            avatarPlaceholder
                                                         }
-                                                    } else {
-                                                        avatarPlaceholder
                                                     }
-                                                }
-                                                .frame(width: 52, height: 52)
-                                                .clipShape(Circle())
+                                                    .frame(width: 52, height: 52)
+                                                    .clipShape(Circle())
 
-                                                Text(friend.onlineId)
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.primary)
-                                                    .lineLimit(1)
-                                                    .frame(width: 60)
+                                                    Text(friend.onlineId)
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.primary)
+                                                        .lineLimit(1)
+                                                        .frame(width: 60)
+                                                }
                                             }
+                                            .buttonStyle(.plain)
                                         }
-                                        .buttonStyle(.plain)
                                     }
+                                    .padding(.vertical, 8)
                                 }
-                                .padding(.vertical, 8)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                             }
-                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                         }
                     }
 
@@ -245,8 +251,8 @@ struct CompareView: View {
                 }
                 ToolbarItem(placement: .principal) {
                     Text(compareResult != nil
-                         ? "\(game.title) - Compare with \(comparedWith)"
-                         : "\(game.title) - Compare with a friend")
+                         ? "\(game.title) — Compare with \(comparedWith)"
+                         : "\(game.title) - Compare with another player")
                         .font(.headline)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)

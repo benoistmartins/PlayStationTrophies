@@ -101,4 +101,58 @@ extension Game {
 
         return "Less than a minute"
     }
+
+    // MARK: - Playtime
+
+    private static let iso8601WithFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let iso8601Standard = ISO8601DateFormatter()
+
+    private static func parseDate(_ str: String) -> Date? {
+        iso8601WithFractional.date(from: str) ?? iso8601Standard.date(from: str)
+    }
+
+    var firstPlayedDate: Date? {
+        guard let str = firstPlayedDateTime else { return nil }
+        return Self.parseDate(str)
+    }
+
+    var lastPlayedDate: Date? {
+        guard let str = lastPlayedDateTime else { return nil }
+        return Self.parseDate(str)
+    }
+
+    var formattedPlayDuration: String? {
+        guard let duration = playDuration else { return nil }
+        return Self.parseISO8601Duration(duration)
+    }
+
+    static func parseISO8601Duration(_ duration: String) -> String? {
+        guard duration.hasPrefix("PT") else { return nil }
+        let s = String(duration.dropFirst(2))
+
+        var hours = 0
+        var minutes = 0
+
+        if let hRange = s.range(of: "H") {
+            hours = Int(String(s[s.startIndex..<hRange.lowerBound])) ?? 0
+        }
+        if let mRange = s.range(of: "M") {
+            let start = s.range(of: "H")?.upperBound ?? s.startIndex
+            minutes = Int(String(s[start..<mRange.lowerBound])) ?? 0
+        }
+
+        let roundedHours = minutes >= 30 ? hours + 1 : hours
+
+        if roundedHours > 0 {
+            return "\(roundedHours)h"
+        } else if minutes > 0 {
+            return "\(minutes)min"
+        }
+        return "< 1min"
+    }
 }

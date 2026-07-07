@@ -38,6 +38,22 @@ struct AchievementPopupView: View {
         }
     }
 
+    private var durationLabel: (value: String, label: String)? {
+        let game = achievement.game
+        if let duration = game.formattedPlayDuration {
+            return (duration, "Play time")
+        }
+        guard let first = game.firstTrophyDate else { return nil }
+        switch achievement.type {
+        case .platinum:
+            guard let platinum = game.platinumDate else { return nil }
+            return (game.completionDuration(from: first, to: platinum), "Completion time")
+        case .hundredPercent:
+            guard let last = game.lastTrophyDate else { return nil }
+            return (game.completionDuration(from: first, to: last), "Completion time")
+        }
+    }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.6)
@@ -72,6 +88,17 @@ struct AchievementPopupView: View {
                     Text(achievement.game.title)
                         .font(.headline)
                         .multilineTextAlignment(.center)
+
+                    if let duration = durationLabel {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("\(duration.label): \(duration.value)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 Text("Congratulations! 🎉")

@@ -19,6 +19,10 @@ struct Game: Identifiable, Codable {
     var psnCommunicationId: String? = nil
     var psnServiceName: String? = nil
     var psnProgress: Int? = nil
+    var playDuration: String? = nil
+    var playCount: Int? = nil
+    var firstPlayedDateTime: String? = nil
+    var lastPlayedDateTime: String? = nil
     var trophies: [Trophy] = []
     var extensions: [GameExtension] = [GameExtension(name: "Base Game")]
 
@@ -40,9 +44,7 @@ struct Game: Identifiable, Codable {
     var completionPercentage: Double {
         guard maxPoints > 0 else { return 0 }
         let raw = Double(earnedPoints) / Double(maxPoints) * 100
-        if raw > 0 && raw < 1 {
-            return 1
-        }
+        if raw > 0 && raw < 1 { return 1 }
         return raw
     }
 
@@ -78,9 +80,7 @@ struct Game: Identifiable, Codable {
         let earnedPts = trophiesForExt.filter { $0.isUnlocked && $0.type != .platinum }.reduce(0) { $0 + $1.type.points }
         guard maxPts > 0 else { return 0 }
         let raw = Double(earnedPts) / Double(maxPts) * 100
-        if raw > 0 && raw < 1 {
-            return 1
-        }
+        if raw > 0 && raw < 1 { return 1 }
         return raw
     }
 }
@@ -98,6 +98,7 @@ extension Game {
         case lastUpdate, addedDate
         case isFavorite, status
         case psnCommunicationId, psnServiceName, psnProgress
+        case playDuration, playCount, firstPlayedDateTime, lastPlayedDateTime
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +114,10 @@ extension Game {
         psnCommunicationId = try container.decodeIfPresent(String.self, forKey: .psnCommunicationId)
         psnServiceName = try container.decodeIfPresent(String.self, forKey: .psnServiceName)
         psnProgress = try container.decodeIfPresent(Int.self, forKey: .psnProgress)
+        playDuration = try container.decodeIfPresent(String.self, forKey: .playDuration)
+        playCount = try container.decodeIfPresent(Int.self, forKey: .playCount)
+        firstPlayedDateTime = try container.decodeIfPresent(String.self, forKey: .firstPlayedDateTime)
+        lastPlayedDateTime = try container.decodeIfPresent(String.self, forKey: .lastPlayedDateTime)
 
         do {
             self.extensions = try container.decode([GameExtension].self, forKey: .extensions)
@@ -148,5 +153,9 @@ extension Game {
         try container.encodeIfPresent(psnCommunicationId, forKey: .psnCommunicationId)
         try container.encodeIfPresent(psnServiceName, forKey: .psnServiceName)
         try container.encodeIfPresent(psnProgress, forKey: .psnProgress)
+        try container.encodeIfPresent(playDuration, forKey: .playDuration)
+        try container.encodeIfPresent(playCount, forKey: .playCount)
+        try container.encodeIfPresent(firstPlayedDateTime, forKey: .firstPlayedDateTime)
+        try container.encodeIfPresent(lastPlayedDateTime, forKey: .lastPlayedDateTime)
     }
 }

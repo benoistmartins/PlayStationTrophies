@@ -141,6 +141,29 @@ final class PSNAPIService {
         return allTitles
     }
 
+    func fetchPlaytimes() async throws -> [PSNPlaytime] {
+        let token = try await authService.validAccessToken()
+        var allTitles: [PSNPlaytime] = []
+        var offset = 0
+        let limit = 100
+
+        repeat {
+            var components = URLComponents(string: "https://m.np.playstation.com/api/gamelist/v2/users/me/titles")!
+            components.queryItems = [
+                URLQueryItem(name: "categories", value: "ps4_game,ps5_native_game"),
+                URLQueryItem(name: "limit", value: "\(limit)"),
+                URLQueryItem(name: "offset", value: "\(offset)")
+            ]
+            let data = try await get(url: components.url!, token: token)
+            let response = try decode(PSNPlaytimeResponse.self, from: data)
+            allTitles.append(contentsOf: response.titles)
+            guard let total = response.totalItemCount, allTitles.count < total else { break }
+            offset += limit
+        } while true
+
+        return allTitles
+    }
+
     // MARK: - Trophy Groups
 
     func fetchTrophyGroups(npCommunicationId: String, serviceName: PSNServiceName) async throws -> [PSNTrophyGroup] {

@@ -171,7 +171,7 @@ struct GameDetailView: View {
                                 Button {
                                     showCompare = true
                                 } label: {
-                                    Label("Compare with a friend", systemImage: "person.2")
+                                    Label("Compare with another player", systemImage: "person.2")
                                 }
 
                                 Button {
@@ -257,6 +257,8 @@ struct GameDetailView: View {
             Text(syncViewModel.error ?? "")
         }
     }
+
+    // MARK: - Stats
 
     private func statsSection(game: Game) -> some View {
         Section {
@@ -400,10 +402,87 @@ struct GameDetailView: View {
                         .padding(.vertical, 4)
                     }
                 }
+
+                if game.formattedPlayDuration != nil {
+                    VStack(spacing: 4) {
+                        Divider()
+
+                        if let duration = game.formattedPlayDuration {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("Play time")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                    Text(duration)
+                                        .font(.caption.bold())
+                                }
+                                Spacer()
+                            }
+                        }
+
+                        if let count = game.playCount {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("Sessions")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "gamecontroller.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                    Text("\(count) session\(count > 1 ? "s" : "")")
+                                        .font(.caption.bold())
+                                }
+                                Spacer()
+                            }
+                        }
+
+                        if let first = game.firstPlayedDate {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("First played")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "calendar")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                    Text(first.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.caption.bold())
+                                }
+                                Spacer()
+                            }
+                        }
+
+                        if let last = game.lastPlayedDate {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("Last played")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "calendar.badge.clock")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                    Text(last.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.caption.bold())
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
             .padding(.vertical, 8)
         }
     }
+
+    // MARK: - Trophies
 
     @ViewBuilder
     private func trophiesSection(game: Game) -> some View {
@@ -478,6 +557,8 @@ struct GameDetailView: View {
         }
     }
 
+    // MARK: - Extension group
+
     @ViewBuilder
     private func extensionGroup(ext: GameExtension, trophies: [Trophy], game: Game) -> some View {
         let unlockedCount = trophies.filter(\.isUnlocked).count
@@ -551,6 +632,8 @@ struct GameDetailView: View {
             }
         }
     }
+
+    // MARK: - Helpers
 
     private var groupImageFallback: some View {
         RoundedRectangle(cornerRadius: 6)

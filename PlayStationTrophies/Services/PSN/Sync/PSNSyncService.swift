@@ -5,13 +5,6 @@
 //  Created by Benoist Martins on 11/05/2026.
 //
 
-//
-//  PSNSyncService.swift
-//  PlayStationTrophies
-//
-//  Created by Benoist Martins on 11/05/2026.
-//
-
 import Foundation
 
 final class PSNSyncService {
@@ -52,6 +45,7 @@ final class PSNSyncService {
 
     func syncGames(optimized: Bool = true) async throws -> (PSNSyncResult, [AchievementUnlock]) {
         let titles = try await apiService.fetchAllTitles()
+        let playtimes = (try? await apiService.fetchPlaytimes()) ?? []
         var result = PSNSyncResult()
         var allAchievements: [AchievementUnlock] = []
 
@@ -61,7 +55,7 @@ final class PSNSyncService {
                 continue
             }
             do {
-                let achievements = try await syncTitle(title, result: &result, force: !optimized)
+                let achievements = try await syncTitle(title, result: &result, force: !optimized, playtimes: playtimes)
                 allAchievements.append(contentsOf: achievements)
             } catch {
                 result.errors.append("\(title.trophyTitleName): \(error.localizedDescription)")
@@ -83,8 +77,24 @@ final class PSNSyncService {
         guard let title = titles.first(where: { $0.npCommunicationId == communicationId }) else {
             throw PSNAPIError.invalidResponse
         }
+        let playtimes = (try? await apiService.fetchPlaytimes()) ?? []
+
+        let normalizedTitle = normalize(title.trophyTitleName)
+        print("🔍 PSN normalized: '\(normalizedTitle)'")
+
+        if let match = playtimes.first(where: { normalizedMatch($0.name ?? "", title.trophyTitleName) }) {
+            print("✅ Matched: '\(match.name ?? "")' → '\(normalize(match.name ?? ""))'")
+            print("⏱ Duration: \(match.playDuration ?? "nil")")
+            print("📅 First: \(match.firstPlayedDateTime ?? "nil")")
+            print("📅 Last: \(match.lastPlayedDateTime ?? "nil")")
+        } else {
+            print("❌ No match for: '\(title.trophyTitleName)'")
+            let allCandidates = playtimes.map { "'\($0.name ?? "?")' → '\(normalize($0.name ?? ""))'" }
+            print("🎮 All gamelist candidates: \(allCandidates)")
+        }
+
         var result = PSNSyncResult()
-        let achievements = try await syncTitle(title, result: &result, force: true)
+        let achievements = try await syncTitle(title, result: &result, force: true, playtimes: playtimes)
         await MainActor.run { store.savePublic() }
         return achievements
     }
@@ -128,9 +138,7 @@ final class PSNSyncService {
 
         if let psnProgress = title.progress {
             if let localProgress = game.psnProgress {
-                if psnProgress != localProgress {
-                    return true
-                }
+                if psnProgress != localProgress { return true }
             } else if psnProgress > 0 {
                 return true
             }
@@ -139,14 +147,62 @@ final class PSNSyncService {
         return false
     }
 
+    // MARK: - Name normalization
+
+    private func normalize(_ str: String) -> String {
+        var result = str
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .replacingOccurrences(of: "\u{00AE}", with: "")
+            .replacingOccurrences(of: "\u{2122}", with: "")
+            .replacingOccurrences(of: "®", with: "")
+            .replacingOccurrences(of: "™", with: "")
+            .replacingOccurrences(of: "©", with: "")
+            .replacingOccurrences(of: " Trophy Set", with: "")
+            .replacingOccurrences(of: " Trophies", with: "")
+            .replacingOccurrences(of: "'", with: "'")
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: " :", with: ":")
+            .replacingOccurrences(of: ":", with: "")
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+            .lowercased()
+
+        let frenchPrefixes = [
+            "trophées d'",
+            "trophées de ",
+            "trophées du ",
+            "trophées des ",
+            "trophées "
+        ]
+        for prefix in frenchPrefixes {
+            if result.hasPrefix(prefix) {
+                result = String(result.dropFirst(prefix.count))
+                break
+            }
+        }
+
+        return result
+            .components(separatedBy: .whitespaces)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func normalizedMatch(_ a: String, _ b: String) -> Bool {
+        normalize(a) == normalize(b)
+    }
+
     // MARK: - Sync title
 
     @discardableResult
-    private func syncTitle(_ title: PSNTitle, result: inout PSNSyncResult, force: Bool = false) async throws -> [AchievementUnlock] {
+    private func syncTitle(_ title: PSNTitle, result: inout PSNSyncResult, force: Bool = false, playtimes: [PSNPlaytime] = []) async throws -> [AchievementUnlock] {
         let serviceName = PSNServiceName(from: title.npServiceName)
         let platforms = platformsFrom(title)
         let primaryPlatform = platforms.first ?? .ps4
         var achievements: [AchievementUnlock] = []
+
+        let matchedPlaytime = playtimes.first(where: {
+            normalizedMatch($0.name ?? "", title.trophyTitleName)
+        })
 
         if let index = await MainActor.run(body: {
             store.games.firstIndex(where: { $0.psnCommunicationId == title.npCommunicationId })
@@ -154,6 +210,14 @@ final class PSNSyncService {
             let game = await MainActor.run { store.games[index] }
 
             if !force && !shouldSync(title, game: game) {
+                if let playtime = matchedPlaytime {
+                    var updatedGame = game
+                    updatedGame.playDuration = playtime.playDuration
+                    updatedGame.playCount = playtime.playCount
+                    updatedGame.firstPlayedDateTime = playtime.firstPlayedDateTime
+                    updatedGame.lastPlayedDateTime = playtime.lastPlayedDateTime
+                    await MainActor.run { store.games[index] = updatedGame }
+                }
                 result.skipped += 1
                 return []
             }
@@ -178,6 +242,13 @@ final class PSNSyncService {
                let date = ISO8601DateFormatter().date(from: dateString) {
                 updatedGame.lastUpdate = date
             }
+            if let playtime = matchedPlaytime {
+                updatedGame.playDuration = playtime.playDuration
+                updatedGame.playCount = playtime.playCount
+                updatedGame.firstPlayedDateTime = playtime.firstPlayedDateTime
+                updatedGame.lastPlayedDateTime = playtime.lastPlayedDateTime
+            }
+
             try await syncTrophies(into: &updatedGame, title: title, serviceName: serviceName, groupNameMap: groupNameMap, groupIconMap: groupIconMap)
 
             let existingExtNames = Set(game.extensions.map { $0.name })
@@ -226,6 +297,12 @@ final class PSNSyncService {
             }
 
             var game = buildGame(from: title, primaryPlatform: primaryPlatform, platforms: platforms)
+            if let playtime = matchedPlaytime {
+                game.playDuration = playtime.playDuration
+                game.playCount = playtime.playCount
+                game.firstPlayedDateTime = playtime.firstPlayedDateTime
+                game.lastPlayedDateTime = playtime.lastPlayedDateTime
+            }
             try await syncTrophies(into: &game, title: title, serviceName: serviceName, groupNameMap: groupNameMap, groupIconMap: groupIconMap)
             await MainActor.run { store.games.append(game) }
             result.added += 1
