@@ -52,8 +52,50 @@ struct HomeView: View {
                 return sortOption.order == .ascending
                     ? lhs.totalTrophies < rhs.totalTrophies
                     : lhs.totalTrophies > rhs.totalTrophies
+            case .playTime:
+                return compareOptional(
+                    seconds(from: lhs.playDuration),
+                    seconds(from: rhs.playDuration)
+                )
+            case .lastPlayed:
+                return compareOptional(lhs.lastPlayedDate, rhs.lastPlayedDate)
+            case .sessionCount:
+                return compareOptional(lhs.playCount, rhs.playCount)
             }
         }
+    }
+
+    // MARK: - Sort helpers
+
+    private func compareOptional<T: Comparable>(_ lhs: T?, _ rhs: T?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return false
+        case (nil, _):
+            return false
+        case (_, nil):
+            return true
+        case let (l?, r?):
+            return sortOption.order == .ascending ? l < r : l > r
+        }
+    }
+
+    private func seconds(from duration: String?) -> Int? {
+        guard let duration, duration.hasPrefix("PT") else { return nil }
+        let s = String(duration.dropFirst(2))
+        var hours = 0, minutes = 0, secs = 0
+        if let hRange = s.range(of: "H") {
+            hours = Int(String(s[s.startIndex..<hRange.lowerBound])) ?? 0
+        }
+        if let mRange = s.range(of: "M") {
+            let start = s.range(of: "H")?.upperBound ?? s.startIndex
+            minutes = Int(String(s[start..<mRange.lowerBound])) ?? 0
+        }
+        if let sRange = s.range(of: "S") {
+            let start = s.range(of: "M")?.upperBound ?? (s.range(of: "H")?.upperBound ?? s.startIndex)
+            secs = Int(String(s[start..<sRange.lowerBound])) ?? 0
+        }
+        return hours * 3600 + minutes * 60 + secs
     }
 
     private func applyFilter(_ game: Game) -> Bool {
@@ -208,14 +250,6 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showAdvancedSearch) {
                 AdvancedSearchView(filter: $activeFilter)
-            }
-            .onChange(of: navigateToGameId) { _, gameId in
-                if gameId != nil {
-                    showSync = false
-                    showProfile = false
-                    showSettings = false
-                    showAdvancedSearch = false
-                }
             }
             .navigationDestination(isPresented: Binding(
                 get: { navigateToGameId != nil },

@@ -79,19 +79,8 @@ final class PSNSyncService {
         }
         let playtimes = (try? await apiService.fetchPlaytimes()) ?? []
 
-        let normalizedTitle = normalize(title.trophyTitleName)
-        print("🔍 PSN normalized: '\(normalizedTitle)'")
-
-        if let match = playtimes.first(where: { normalizedMatch($0.name ?? "", title.trophyTitleName) }) {
-            print("✅ Matched: '\(match.name ?? "")' → '\(normalize(match.name ?? ""))'")
-            print("⏱ Duration: \(match.playDuration ?? "nil")")
-            print("📅 First: \(match.firstPlayedDateTime ?? "nil")")
-            print("📅 Last: \(match.lastPlayedDateTime ?? "nil")")
-        } else {
-            print("❌ No match for: '\(title.trophyTitleName)'")
-            let allCandidates = playtimes.map { "'\($0.name ?? "?")' → '\(normalize($0.name ?? ""))'" }
-            print("🎮 All gamelist candidates: \(allCandidates)")
-        }
+        let allMatches = playtimes.filter { normalizedMatch($0.name ?? "", title.trophyTitleName) }
+        print("🔍 All matches for \(title.trophyTitleName): \(allMatches)")
 
         var result = PSNSyncResult()
         let achievements = try await syncTitle(title, result: &result, force: true, playtimes: playtimes)

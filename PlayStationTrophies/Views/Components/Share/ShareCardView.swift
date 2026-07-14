@@ -18,15 +18,19 @@ struct ShareCardView: View {
         }
     }
 
-    private var duration: String? {
-        guard let first = achievement.game.firstTrophyDate else { return nil }
+    private var durationLabel: (value: String, label: String)? {
+        let game = achievement.game
+        if let duration = game.formattedPlayDuration {
+            return (duration, "Play time")
+        }
+        guard let first = game.firstTrophyDate else { return nil }
         switch achievement.type {
         case .platinum:
-            guard let platinum = achievement.game.platinumDate else { return nil }
-            return achievement.game.completionDuration(from: first, to: platinum)
+            guard let platinum = game.platinumDate else { return nil }
+            return (game.completionDuration(from: first, to: platinum), "Completion time")
         case .hundredPercent:
-            guard let last = achievement.game.lastTrophyDate else { return nil }
-            return achievement.game.completionDuration(from: first, to: last)
+            guard let last = game.lastTrophyDate else { return nil }
+            return (game.completionDuration(from: first, to: last), "Completion time")
         }
     }
 
@@ -47,7 +51,6 @@ struct ShareCardView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-
             VStack(spacing: 20) {
                 ZStack {
                     Color(.systemGray5)
@@ -68,32 +71,27 @@ struct ShareCardView: View {
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(accentColor, lineWidth: 2)
                 )
-
                 VStack(spacing: 6) {
                     Text(title)
                         .font(.title3.bold())
                         .foregroundStyle(accentColor)
-
                     Text(achievement.game.title)
                         .font(.headline)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
-
-                    if let duration {
+                    if let duration = durationLabel {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.6))
-                            Text("Completed in \(duration)")
+                            Text("\(duration.label): \(duration.value)")
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.6))
                         }
                     }
                 }
-
                 Divider()
                     .background(Color.white.opacity(0.2))
-
                 Text("Trophy hunting with PlayStationTrophies 🎮")
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.4))

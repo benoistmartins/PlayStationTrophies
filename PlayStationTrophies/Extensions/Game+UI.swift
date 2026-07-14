@@ -131,12 +131,13 @@ extension Game {
         return Self.parseISO8601Duration(duration)
     }
 
-    static func parseISO8601Duration(_ duration: String) -> String? {
+    private static func totalSeconds(fromISO8601Duration duration: String) -> Int? {
         guard duration.hasPrefix("PT") else { return nil }
         let s = String(duration.dropFirst(2))
 
         var hours = 0
         var minutes = 0
+        var seconds = 0
 
         if let hRange = s.range(of: "H") {
             hours = Int(String(s[s.startIndex..<hRange.lowerBound])) ?? 0
@@ -145,6 +146,35 @@ extension Game {
             let start = s.range(of: "H")?.upperBound ?? s.startIndex
             minutes = Int(String(s[start..<mRange.lowerBound])) ?? 0
         }
+        if let sRange = s.range(of: "S") {
+            let start = s.range(of: "M")?.upperBound ?? (s.range(of: "H")?.upperBound ?? s.startIndex)
+            seconds = Int(String(s[start..<sRange.lowerBound])) ?? 0
+        }
+
+        return hours * 3600 + minutes * 60 + seconds
+    }
+
+    var averageSessionDuration: String? {
+        guard let duration = playDuration,
+              let count = playCount, count > 0,
+              let total = Self.totalSeconds(fromISO8601Duration: duration) else { return nil }
+
+        let avgSeconds = total / count
+        let hours = avgSeconds / 3600
+        let minutes = (avgSeconds % 3600) / 60
+
+        if hours > 0 {
+            return minutes > 0 ? "\(hours)h \(minutes)min" : "\(hours)h"
+        } else if minutes > 0 {
+            return "\(minutes)min"
+        }
+        return "< 1min"
+    }
+
+    static func parseISO8601Duration(_ duration: String) -> String? {
+        guard let total = totalSeconds(fromISO8601Duration: duration) else { return nil }
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
 
         let roundedHours = minutes >= 30 ? hours + 1 : hours
 

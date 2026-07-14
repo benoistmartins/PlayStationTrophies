@@ -441,6 +441,23 @@ struct GameDetailView: View {
                             }
                         }
 
+                        if let avg = game.averageSessionDuration {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("Avg. session")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "timer")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                    Text(avg)
+                                        .font(.caption.bold())
+                                }
+                                Spacer()
+                            }
+                        }
+
                         if let first = game.firstPlayedDate {
                             HStack(alignment: .top, spacing: 12) {
                                 Text("First played")
