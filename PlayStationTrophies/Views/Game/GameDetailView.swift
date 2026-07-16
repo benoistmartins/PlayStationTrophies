@@ -103,6 +103,12 @@ struct GameDetailView: View {
             if !silver.isEmpty   { groups.append(("Silver: \(silver.count)", silver)) }
             if !bronze.isEmpty   { groups.append(("Bronze: \(bronze.count)", bronze)) }
             return groups
+
+        case .alphabetical:
+            return [("", trophies.sorted { $0.name.localizedCompare($1.name) == .orderedAscending })]
+
+        case .earnedRate:
+            return [("", trophies.sorted { ($0.earnedRate ?? 100) < ($1.earnedRate ?? 100) })]    
         }
     }
 
