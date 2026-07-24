@@ -15,6 +15,7 @@ struct ProfileView: View {
     @State private var selectedChartYear: Int? = nil
     @State private var selectedPlatform: Platform? = nil
     @State private var selectedChartMonth: String? = nil
+    @State private var platinumSortOption: PlatinumSortOption = .mostRecent
 
     private var level: PlayerLevel { store.playerLevel }
     private var totalPoints: Int { store.totalPointsAllGames }
@@ -30,6 +31,8 @@ struct ProfileView: View {
             levelSection
             sectionDivider(icon: "chart.bar.fill", title: "Overview", color: .blue)
             globalStatsSection
+            sectionDivider(icon: "trophy.fill", title: "Platinums this year", color: .cyan)
+            platinumsThisYearSection
             sectionDivider(icon: "trophy.fill", title: "Trophy breakdown", color: .yellow)
             trophyBreakdownSection
             sectionDivider(icon: "calendar", title: "Stats by year", color: .orange)
@@ -170,6 +173,67 @@ struct ProfileView: View {
                         .font(.body.bold())
                 }
             }
+        }
+    }
+
+    // MARK: - Platinums this year
+
+    private var platinumsThisYearSection: some View {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let platinumedGames = sortedPlatinumGames(store.gamesPlatinumed(in: currentYear))
+
+        return Section {
+            HStack {
+                StatBadge(value: "\(platinumedGames.count)", label: "Platinums in \(String(currentYear))")
+                Spacer()
+                Menu {
+                    ForEach(PlatinumSortOption.allCases, id: \.self) { option in
+                        Button {
+                            platinumSortOption = option
+                        } label: {
+                            HStack {
+                                Text(option.rawValue)
+                                if platinumSortOption == option {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down.circle")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 8)
+
+            if platinumedGames.isEmpty {
+                Text("No platinum yet this year")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(platinumedGames) { game in
+                    HStack(spacing: 12) {
+                        CoverImageView(url: game.coverURL, size: CGSize(width: 36, height: 36))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        Text(game.title)
+                            .font(.body)
+                        Spacer()
+                        Image(systemName: "trophy.fill")
+                            .foregroundStyle(.cyan)
+                    }
+                }
+            }
+        }
+    }
+
+    private func sortedPlatinumGames(_ games: [Game]) -> [Game] {
+        switch platinumSortOption {
+        case .mostRecent:
+            return games.sorted { ($0.platinumDate ?? .distantPast) > ($1.platinumDate ?? .distantPast) }
+        case .oldest:
+            return games.sorted { ($0.platinumDate ?? .distantPast) < ($1.platinumDate ?? .distantPast) }
+        case .alphabetical:
+            return games.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
         }
     }
 

@@ -153,6 +153,15 @@ final class DataStore: ObservableObject {
         trophiesUnlocked(in: year).filter { $0.type == .platinum }.count
     }
 
+    func gamesPlatinumed(in year: Int) -> [Game] {
+        let calendar = Calendar.current
+        return games.filter { game in
+            guard let platinumTrophy = game.trophies.first(where: { $0.type == .platinum && $0.isUnlocked }),
+                  let date = platinumTrophy.unlockedDate else { return false }
+            return calendar.component(.year, from: date) == year
+        }
+    }
+
     func gamesStarted(in year: Int) -> Int {
         let calendar = Calendar.current
         return games.filter { game in
