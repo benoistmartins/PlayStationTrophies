@@ -7,10 +7,10 @@ An iOS app to track your PlayStation Network trophies, built with SwiftUI.
 - **PSN Sync** — Automatically sync your games and trophies from PlayStation Network
 - **Smart sync** — Only updates games with new trophies or progress
 - **Trophy tracking** — Browse all your trophies with filters, sorts and progression tracking
-- **Filters & sorts** — Filter by type, status, rarity or sort by date, rank, rarity
-- **Statistics** — Detailed stats on your profile (level, completion rate, activity charts)
+- **Filters & sorts** — Filter by type, status, rarity or sort by date, rank, rarity, alphabetically, or by earned %
+- **Statistics** — Detailed stats on your profile (level, completion rate, activity charts, platinums this year)
 - **Completion time** — Track how long it took to platinum or 100% a game
-- **Playtime tracking** — See total play time, session count, and first/last played dates
+- **Playtime tracking** — See total play time, session count, average session length, and first/last played dates
 - **Achievement popup** — Celebrate platinums and 100% completions with a popup and confetti
 - **Share card** — Generate and share a beautiful card when you unlock a platinum or 100%
 - **DLC notifications** — Get notified when a new DLC is available for your games
@@ -18,6 +18,7 @@ An iOS app to track your PlayStation Network trophies, built with SwiftUI.
 - **Recent trophies** — See your latest unlocked trophies at a glance
 - **Favorites** — Mark your favorite games for quick access
 - **Hidden games** — Automatically ignores games hidden on PSN
+- **Homepage sorting** — Sort your library by last update, name, completion, trophy count, play time, last played, or session count
 
 ## Requirements
 
