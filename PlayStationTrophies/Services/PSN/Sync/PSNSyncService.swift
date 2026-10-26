@@ -49,6 +49,8 @@ final class PSNSyncService {
         var result = PSNSyncResult()
         var allAchievements: [AchievementUnlock] = []
 
+        let visibleIds = Set(titles.filter { $0.hiddenFlag != true }.map { $0.npCommunicationId })
+
         for title in titles {
             guard title.hiddenFlag != true else {
                 result.skipped += 1
@@ -63,6 +65,11 @@ final class PSNSyncService {
         }
 
         await MainActor.run {
+            store.games.removeAll { game in
+                guard let id = game.psnCommunicationId else { return false }
+                return !visibleIds.contains(id)
+            }
+
             deduplicateGames()
             store.savePublic()
         }
